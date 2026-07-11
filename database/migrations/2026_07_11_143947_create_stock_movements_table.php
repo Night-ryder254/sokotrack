@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('stock_movements', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->integer('quantity_change'); // positive = restock, negative = sale
+            $table->enum('reason', ['restock', 'sale', 'adjustment', 'return']);
+            $table->foreignId('order_id')->nullable()->constrained()->onDelete('set null');
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }
