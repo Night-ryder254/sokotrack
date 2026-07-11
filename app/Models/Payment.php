@@ -9,4 +9,11 @@ class Payment extends Model
 {
     /** @use HasFactory<\Database\Factories\PaymentFactory> */
     use HasFactory;
+
+    protected $fillable = ['order_id', 'method', 'amount', 'status', 'mpesa_receipt_number', 'bank_reference', 'confirmed_at'];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
 }

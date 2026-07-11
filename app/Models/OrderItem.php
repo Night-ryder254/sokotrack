@@ -9,4 +9,21 @@ class OrderItem extends Model
 {
     /** @use HasFactory<\Database\Factories\OrderItemFactory> */
     use HasFactory;
+
+    protected $fillable = ['order_id', 'product_id', 'quantity', 'unit_price'];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function subtotal()
+    {
+        return $this->quantity * $this->unit_price;
+    }
 }
