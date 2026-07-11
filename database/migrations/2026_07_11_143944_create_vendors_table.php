@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('vendors', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('vendor_tier_id')->nullable()->constrained()->onDelete('set null');
+            $table->string('business_name');
+            $table->string('phone'); // for M-Pesa STK push later
+            $table->decimal('credit_limit', 12, 2)->default(0);
+            $table->decimal('outstanding_balance', 12, 2)->default(0);
+            $table->unsignedInteger('loyalty_points')->default(0);
             $table->timestamps();
         });
     }

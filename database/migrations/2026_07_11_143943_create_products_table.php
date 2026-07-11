@@ -13,6 +13,14 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('category_id')->constrained()->onDelete('cascade');
+            $table->string('name');
+            $table->string('sku')->unique();
+            $table->text('description')->nullable();
+            $table->decimal('price', 10, 2);
+            $table->unsignedInteger('stock_quantity')->default(0);
+            $table->unsignedInteger('low_stock_threshold')->default(10);
+            $table->string('image_path')->nullable(); // will hold S3 path later
             $table->timestamps();
         });
     }

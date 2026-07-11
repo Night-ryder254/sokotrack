@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('vendor_tiers', function (Blueprint $table) {
             $table->id();
+            $table->string('name'); // Bronze, Silver, Gold
+            $table->unsignedInteger('min_points'); // threshold to reach this tier
+            $table->decimal('discount_percentage', 5, 2)->default(0);
             $table->timestamps();
         });
     }
