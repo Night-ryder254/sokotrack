@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('loyalty_transactions', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('vendor_id')->constrained()->onDelete('cascade');
+            $table->integer('points_change'); // positive = earned, negative = redeemed
+            $table->enum('reason', ['order_earned', 'redeemed', 'admin_adjustment']);
+            $table->foreignId('order_id')->nullable()->constrained()->onDelete('set null');
             $table->timestamps();
         });
     }

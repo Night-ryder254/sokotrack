@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('terms_acceptances', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('vendor_id')->constrained()->onDelete('cascade');
+            $table->foreignId('terms_version_id')->constrained()->onDelete('cascade');
+            $table->timestamp('accepted_at');
             $table->timestamps();
         });
     }
