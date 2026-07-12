@@ -18,7 +18,11 @@ class OrderFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'vendor_id' => \App\Models\Vendor::factory(),
+            'order_number' => 'ORD-' . strtoupper(fake()->bothify('####-????')),
+            'total_amount' => 0, // calculated in seeder after items are attached
+            'payment_method' => fake()->randomElement(['mpesa', 'bank_transfer', 'credit']),
+            'status' => fake()->randomElement(['pending', 'confirmed', 'confirmed', 'confirmed']), // weighted toward confirmed
         ];
     }
 }

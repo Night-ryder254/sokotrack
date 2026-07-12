@@ -18,7 +18,9 @@ class TermsAcceptanceFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'vendor_id' => \App\Models\Vendor::factory(),
+            'terms_version_id' => \App\Models\TermsVersion::factory(),
+            'accepted_at' => now(),
         ];
     }
 }

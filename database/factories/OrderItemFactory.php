@@ -18,7 +18,10 @@ class OrderItemFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'order_id' => \App\Models\Order::factory(),
+            'product_id' => \App\Models\Product::factory(),
+            'quantity' => fake()->numberBetween(1, 20),
+            'unit_price' => 0, // set explicitly in seeder to match product price at that time
         ];
     }
 }

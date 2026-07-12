@@ -17,8 +17,10 @@ class CategoryFactory extends Factory
      */
     public function definition(): array
     {
+        $name = fake()->randomElement(['Beverages', 'Snacks', 'Cleaning Supplies', 'Stationery', 'Cosmetics', 'Dairy']);
         return [
-            //
+            'name' => $name,
+            'slug' => \Illuminate\Support\Str::slug($name) . '-' . fake()->unique()->numberBetween(1, 9999),
         ];
     }
 }
