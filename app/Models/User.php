@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -55,5 +56,20 @@ class User extends Authenticatable
     public function isVendor()
     {
         return $this->vendor !== null;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isWarehouseStaff(): bool
+    {
+        return $this->role === 'warehouse_staff';
+    }
+
+    public function isInternalStaff(): bool
+    {
+        return in_array($this->role, ['admin', 'warehouse_staff']);
     }
 }
