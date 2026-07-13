@@ -34,7 +34,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 3. Categories and products
-        $categories = Category::factory(6)->create();
+        $categoryNames = ['Beverages', 'Snacks', 'Cleaning Supplies', 'Stationery', 'Cosmetics', 'Dairy'];
+        $categories = collect($categoryNames)->map(fn ($name) => Category::create([
+            'name' => $name,
+            'slug' => \Illuminate\Support\Str::slug($name),
+        ]));
         $products = collect();
         foreach ($categories as $category) {
             $categoryProducts = Product::factory(10)->create(['category_id' => $category->id]);
