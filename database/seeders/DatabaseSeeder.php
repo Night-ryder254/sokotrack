@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\VendorTier;
 use App\Models\Vendor;
-use App\Models\User;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\StockMovement;
@@ -21,6 +21,21 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // Your permanent admin account — recreated automatically on every fresh seed
+        $admin = User::create([
+            'name' => 'Nigel Matekwa',
+            'email' => 'admin@sokotrack.test',
+            'password' => bcrypt('password'), // change if you want a real password
+            'role' => 'admin',
+        ]);
+
+        // Optional: a standing "denied" test account, same purpose as sbrad@gmail.com earlier
+        User::create([
+            'name' => 'Test Manager',
+            'email' => 'staff@sokotrack.test',
+            'password' => bcrypt('password'),
+            'role' => 'warehouse_staff',
+        ]);
         // 1. Vendor tiers — fixed business rules, not random
         $bronze = VendorTier::create(['name' => 'Bronze', 'min_points' => 0, 'discount_percentage' => 0]);
         $silver = VendorTier::create(['name' => 'Silver', 'min_points' => 500, 'discount_percentage' => 5]);
@@ -40,9 +55,32 @@ class DatabaseSeeder extends Seeder
             'slug' => \Illuminate\Support\Str::slug($name),
         ]));
         $products = collect();
+        $productsByCategory = [
+            'Beverages' => ['Coca-Cola 500ml', 'Del Monte Juice 1L', 'Keringet Water 500ml', 'Tusker Lager 500ml', 'Java House Ground Coffee 250g', 'Alvaro Malt Drink 350ml', 'Dasani Water 1L', 'Minute Maid Mango 1L', 'Fanta Orange 500ml', 'Sprite 500ml'],
+            'Snacks' => ['Tropical Heat Crisps', 'Britania Digestive Biscuits', 'Cadbury Dairy Milk 80g', 'Farmers Choice Sausages', 'Kenchic Chicken Nuggets 500g', 'Nice Biscuits 200g', 'Big G Bubble Gum', 'Softa Fruit Chews', 'Weetabix Cereal 430g', 'Uji Flour 2kg'],
+            'Cleaning Supplies' => ['Omo Washing Powder 1kg', 'Jik Bleach 750ml', 'Sunlight Dishwashing Liquid 500ml', 'Harpic Toilet Cleaner 500ml', 'Ariel Detergent 1kg', 'Dettol Antiseptic 250ml', 'Vim Scouring Powder 500g', 'Toilet Paper 10-Pack', 'Kiwi Shoe Polish', 'Mr Muscle Glass Cleaner'],
+            'Stationery' => ['Bic Biro Pens (Box of 12)', 'Foolscap Exercise Book', 'Camlin Pencils (Pack of 10)', 'Manila File Folders', 'Stapler with Pins', 'A4 Printing Paper Ream', 'Highlighter Set', 'Correction Fluid', 'Office Envelopes (50-Pack)', 'Sticky Notes Pack'],
+            'Cosmetics' => ['Nivea Body Lotion 400ml', 'Fair & White Soap', 'Vaseline Petroleum Jelly 250ml', 'Dark & Lovely Relaxer', 'Colgate Toothpaste 100ml', 'Geisha Beauty Soap', 'Sunsilk Shampoo 350ml', 'Rexona Deodorant Roll-On', 'Nice & Lovely Body Wash', 'Palmers Cocoa Butter'],
+            'Dairy' => ['Brookside Fresh Milk 500ml', 'KCC Butter 250g', 'Tuzo Yoghurt 500ml', 'Fresha Long Life Milk 1L', 'Daima Ghee 500g', 'Bio Yoghurt 1L', 'Kenya Creamery Cheese 200g', 'Ilara Fresh Milk 1L', 'Delamere Cream 250ml', 'Kanga Milk Powder 400g'],
+        ];
+
         foreach ($categories as $category) {
-            $categoryProducts = Product::factory(10)->create(['category_id' => $category->id]);
-            $products = $products->merge($categoryProducts);
+            $names = $productsByCategory[$category->name] ?? [];
+
+            foreach ($names as $name) {
+                $product = Product::create([
+                    'category_id' => $category->id,
+                    'name' => $name,
+                    'sku' => strtoupper(fake()->bothify('SKU-####-???')),
+                    'description' => fake()->sentence(),
+                    'price' => fake()->randomFloat(2, 50, 5000),
+                    'stock_quantity' => fake()->numberBetween(0, 500),
+                    'low_stock_threshold' => fake()->numberBetween(5, 30),
+                    'image_path' => null,
+                ]);
+
+                $products->push($product);
+            }
         }
 
         // 4. Vendors — start everyone on Bronze, all balances/points at zero
