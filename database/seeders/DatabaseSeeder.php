@@ -49,7 +49,7 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('password'),
             'role' => 'none',
         ]);
-        
+
         Vendor::create([
             'user_id' => $vendorUser->id,
             'vendor_tier_id' => $bronze->id,
@@ -91,7 +91,7 @@ class DatabaseSeeder extends Seeder
                     'category_id' => $category->id,
                     'name' => $name,
                     'sku' => strtoupper(fake()->bothify('SKU-####-???')),
-                    'description' => fake()->sentence(),
+                    'description' => "Quality {$category->name} product, popular with retail and wholesale customers across Kenya. Sold in standard retail packaging, suitable for shelf display.",
                     'price' => fake()->randomFloat(2, 50, 5000),
                     'stock_quantity' => fake()->numberBetween(0, 500),
                     'low_stock_threshold' => fake()->numberBetween(5, 30),

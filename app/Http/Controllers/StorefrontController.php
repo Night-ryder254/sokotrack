@@ -21,8 +21,33 @@ class StorefrontController extends Controller
         }
 
         $products = $query->orderBy('name')->paginate(12);
-        $categories = Category::all();
+        $categories = Category::withCount('products')->get();
+        $vendor = $request->user()->vendor()->with('tier')->first();
 
-        return view('storefront.index', compact('products', 'categories'));
+        // Calculate real cart total, not just item count
+        $cart = session('cart', []);
+        $cartCount = collect($cart)->sum();
+        $cartTotal = 0;
+        if (!empty($cart)) {
+            $cartProducts = Product::whereIn('id', array_keys($cart))->get();
+            $cartTotal = $cartProducts->sum(fn ($p) => $p->price * $cart[$p->id]);
+        }
+
+        return view('storefront.index', compact('products', 'categories', 'vendor', 'cartCount', 'cartTotal'));
+    }
+
+    public function show(Product $product)
+    {
+        if ($product->stock_quantity <= 0) {
+            abort(404);
+        }
+
+        $relatedProducts = Product::where('category_id', $product->category_id)
+            ->where('id', '!=', $product->id)
+            ->where('stock_quantity', '>', 0)
+            ->take(4)
+            ->get();
+
+        return view('storefront.show', compact('product', 'relatedProducts'));
     }
 }

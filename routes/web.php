@@ -6,14 +6,13 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -36,6 +35,7 @@ Route::middleware(['auth', 'role:admin,warehouse_staff'])->group(function () {
 Route::middleware(['auth', 'vendor'])->group(function () {
     Route::get('/shop', [StorefrontController::class, 'index'])->name('storefront.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::get('/shop/{product}', [StorefrontController::class, 'show'])->name('storefront.show');
     Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add');
     Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
 });
