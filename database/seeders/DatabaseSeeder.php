@@ -29,17 +29,36 @@ class DatabaseSeeder extends Seeder
             'role' => 'admin',
         ]);
 
-        // Optional: a standing "denied" test account, same purpose as sbrad@gmail.com earlier
+        // Optional: a standing "denied" test account.
         User::create([
             'name' => 'Test Manager',
             'email' => 'staff@sokotrack.test',
             'password' => bcrypt('password'),
             'role' => 'warehouse_staff',
         ]);
+
         // 1. Vendor tiers — fixed business rules, not random
         $bronze = VendorTier::create(['name' => 'Bronze', 'min_points' => 0, 'discount_percentage' => 0]);
         $silver = VendorTier::create(['name' => 'Silver', 'min_points' => 500, 'discount_percentage' => 5]);
         $gold = VendorTier::create(['name' => 'Gold', 'min_points' => 2000, 'discount_percentage' => 10]);
+
+        // A known, permanent vendor account for easy storefront testing
+        $vendorUser = User::create([
+            'name' => 'Test Vendor',
+            'email' => 'vendor@sokotrack.test',
+            'password' => bcrypt('password'),
+            'role' => 'none',
+        ]);
+        
+        Vendor::create([
+            'user_id' => $vendorUser->id,
+            'vendor_tier_id' => $bronze->id,
+            'business_name' => 'Mama Njeri General Store',
+            'phone' => '254712345678',
+            'credit_limit' => 50000,
+            'outstanding_balance' => 0,
+            'loyalty_points' => 0,
+        ]);
 
         // 2. Terms & Conditions — one real active version
         $terms = TermsVersion::create([
