@@ -7,6 +7,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CheckoutController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -38,6 +39,9 @@ Route::middleware(['auth', 'vendor'])->group(function () {
     Route::get('/shop/{product}', [StorefrontController::class, 'show'])->name('storefront.show');
     Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add');
     Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
+    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/checkout/{order}/success', [CheckoutController::class, 'success'])->name('checkout.success');
 });
 
 require __DIR__.'/auth.php';

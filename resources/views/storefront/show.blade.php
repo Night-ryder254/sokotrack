@@ -4,10 +4,6 @@
 
             <a href="{{ route('storefront.index') }}" class="text-sm text-[#1B4332] hover:underline">← Back to Shop</a>
 
-            @if (session('success'))
-                <div class="mt-4 bg-green-100 text-green-800 px-4 py-3 rounded-lg text-sm">{{ session('success') }}</div>
-            @endif
-
             <div class="mt-4 bg-white rounded-lg p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
 
                 {{-- Placeholder product image: colored panel with initials, since no real photos uploaded yet --}}
@@ -26,17 +22,17 @@
 
                     <p class="text-gray-600 mt-4 leading-relaxed">{{ $product->description }}</p>
 
-                    <form action="{{ route('cart.add', $product) }}" method="POST" class="mt-6 flex items-center gap-3">
-                        @csrf
-                        {{-- Quantity stepper: click +/- instead of typing and pressing Enter --}}
+                    <form onsubmit="addToCart(event, '{{ route('cart.add', $product) }}')" class="mt-6 flex items-center gap-3">
+                        {{-- Quantity stepper: click +/- via Alpine state, no DOM sibling reaching --}}
                         <div class="flex items-center border border-gray-300 rounded-lg" x-data="{ qty: 1 }">
-                            <button type="button" onclick="this.nextElementSibling.stepDown(); this.nextElementSibling.dispatchEvent(new Event('change'))" class="px-3 py-2 text-gray-500 hover:bg-gray-50">−</button>
-                            <input type="number" name="quantity" value="1" min="1" class="w-14 text-center border-0 focus:ring-0">
-                            <button type="button" onclick="this.previousElementSibling.stepUp()" class="px-3 py-2 text-gray-500 hover:bg-gray-50">+</button>
+                            <button type="button" @click="qty = Math.max(1, qty - 1)" class="px-3 py-2 text-gray-500 hover:bg-gray-50">−</button>
+                            <input type="number" name="quantity" x-model="qty" min="1" max="{{ $product->stock_quantity }}" class="w-14 text-center border-0 focus:ring-0">
+                            <button type="button" @click="qty = Math.min({{ $product->stock_quantity }}, qty + 1)" class="px-3 py-2 text-gray-500 hover:bg-gray-50">+</button>
                         </div>
                         <button type="submit" class="bg-[#1B4332] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#163829]">
                             Add to Cart
                         </button>
+                        <span class="add-feedback text-sm text-green-600 opacity-0 transition-opacity whitespace-nowrap">✓ Added</span>
                     </form>
                 </div>
             </div>

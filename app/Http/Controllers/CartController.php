@@ -35,9 +35,20 @@ class CartController extends Controller
         $cart[$product->id] = ($cart[$product->id] ?? 0) + $validated['quantity'];
         session(['cart' => $cart]);
 
+        if ($request->wantsJson()) {
+            $cartCount = collect($cart)->sum();
+            $cartProducts = Product::whereIn('id', array_keys($cart))->get();
+            $cartTotal = $cartProducts->sum(fn ($p) => $p->price * $cart[$p->id]);
+
+            return response()->json([
+                'success' => true,
+                'cartCount' => $cartCount,
+                'cartTotal' => $cartTotal,
+            ]);
+        }
+
         return back()->with('success', "{$product->name} added to cart.");
     }
-
     public function remove(Product $product)
     {
         $cart = session('cart', []);

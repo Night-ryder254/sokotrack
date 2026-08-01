@@ -28,13 +28,11 @@
 
                     <a href="{{ route('cart.index') }}" class="relative flex items-center gap-2 bg-[#E8A93B] text-[#1F2421] font-medium px-4 py-2 rounded-lg text-sm hover:brightness-95">
                         <span>Cart</span>
-                        @if ($cartCount > 0)
-                            <span class="font-mono-price text-xs bg-[#1F2421]/10 px-2 py-0.5 rounded-full">
+                        <span id="cart-badge" class="font-mono-price text-xs bg-[#1F2421]/10 px-2 py-0.5 rounded-full">
+                            @if ($cartCount > 0)
                                 {{ $cartCount }} · KES {{ number_format($cartTotal, 0) }}
-                            </span>
-                        @else
-                            <span class="text-xs opacity-70">Empty</span>
-                        @endif
+                            @endif
+                        </span>
                     </a>
                 </div>
             </div>
@@ -98,16 +96,16 @@
                                     <p class="text-xs text-green-600 mt-1">✓ In stock</p>
                                 </div>
 
-                                <form action="{{ route('cart.add', $product) }}" method="POST" class="mt-4 flex items-center gap-2">
-                                    @csrf
-                                    <div class="flex items-center border border-gray-300 rounded-lg">
-                                        <button type="button" onclick="this.nextElementSibling.stepDown()" class="px-2 py-1.5 text-gray-500 hover:bg-gray-50">−</button>
-                                        <input type="number" name="quantity" value="1" min="1" max="{{ $product->stock_quantity }}" class="w-10 text-center text-sm border-0 focus:ring-0">
-                                        <button type="button" onclick="this.previousElementSibling.stepUp()" class="px-2 py-1.5 text-gray-500 hover:bg-gray-50">+</button>
+                                <form onsubmit="addToCart(event, '{{ route('cart.add', $product) }}')" class="mt-4 flex items-center gap-2">
+                                    <div class="flex items-center border border-gray-300 rounded-lg" x-data="{ qty: 1 }">
+                                        <button type="button" @click="qty = Math.max(1, qty - 1)" class="px-2 py-1.5 text-gray-500 hover:bg-gray-50">−</button>
+                                        <input type="number" name="quantity" x-model="qty" min="1" max="{{ $product->stock_quantity }}" class="w-10 text-center text-sm border-0 focus:ring-0">
+                                        <button type="button" @click="qty = Math.min({{ $product->stock_quantity }}, qty + 1)" class="px-2 py-1.5 text-gray-500 hover:bg-gray-50">+</button>
                                     </div>
                                     <button type="submit" class="flex-1 bg-[#1B4332] text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#163829]">
                                         Add to cart
                                     </button>
+                                    <span class="add-feedback text-xs text-green-600 opacity-0 transition-opacity whitespace-nowrap">✓ Added</span>
                                 </form>
                             </div>
                         </div>

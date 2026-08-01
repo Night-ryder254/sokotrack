@@ -16,6 +16,20 @@
         <style>
             .font-display { font-family: 'Fraunces', serif; }
             .font-mono-price { font-family: 'IBM Plex Mono', monospace; }
+             /* Hide native number input spinners across browsers */
+            input[type="number"]::-webkit-inner-spin-button,
+            input[type="number"]::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            input[type="number"] {
+                -moz-appearance: textfield;
+            }
+            
+             @media print {
+                nav, .no-print { display: none !important; }
+                body { background: white !important; }
+            }
         </style>
 
         <!-- Scripts -->
@@ -39,5 +53,40 @@
                 {{ $slot }}
             </main>
         </div>
+
+        <script>
+            async function addToCart(event, url) {
+                event.preventDefault();
+                const form = event.target;
+                const formData = new FormData(form);
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                // Update the cart button in the header without reloading
+                const cartBadge = document.getElementById('cart-badge');
+                if (cartBadge) {
+                    cartBadge.innerHTML = data.cartCount > 0
+                        ? `${data.cartCount} · KES ${Number(data.cartTotal).toLocaleString(undefined, {minimumFractionDigits: 0})}`
+                        : '';
+                }
+
+                // Show a brief inline confirmation next to the button that was clicked
+                const feedback = form.querySelector('.add-feedback');
+                if (feedback) {
+                    feedback.textContent = '✓ Added';
+                    feedback.classList.remove('opacity-0');
+                    setTimeout(() => feedback.classList.add('opacity-0'), 1500);
+                }
+            }
+        </script>
     </body>
 </html>
