@@ -25,7 +25,7 @@
             input[type="number"] {
                 -moz-appearance: textfield;
             }
-            
+
              @media print {
                 nav, .no-print { display: none !important; }
                 body { background: white !important; }
@@ -71,15 +71,15 @@
 
                 const data = await response.json();
 
-                // Update the cart button in the header without reloading
-                const cartBadge = document.getElementById('cart-badge');
-                if (cartBadge) {
-                    cartBadge.innerHTML = data.cartCount > 0
-                        ? `${data.cartCount} · KES ${Number(data.cartTotal).toLocaleString(undefined, {minimumFractionDigits: 0})}`
-                        : '';
-                }
+                ['cart-badge', 'cart-badge-mobile'].forEach(id => {
+                    const badge = document.getElementById(id);
+                    if (badge) {
+                        badge.innerHTML = data.cartCount > 0
+                            ? `${data.cartCount} · KES ${Number(data.cartTotal).toLocaleString(undefined, {minimumFractionDigits: 0})}`
+                            : '';
+                    }
+                });
 
-                // Show a brief inline confirmation next to the button that was clicked
                 const feedback = form.querySelector('.add-feedback');
                 if (feedback) {
                     feedback.textContent = '✓ Added';

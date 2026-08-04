@@ -43,11 +43,16 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'low_stock_threshold' => 'required|integer|min:0',
+            'image' => 'nullable|image|max:2048',
         ]);
+
+        if ($request->hasFile('image')) {
+            $validated['image_path'] = $request->file('image')->store('products', 'public');
+        }
+        unset($validated['image']);
 
         $product = Product::create($validated);
 
-        // Log the initial stock as a real movement, not just a silent number
         if ($product->stock_quantity > 0) {
             StockMovement::create([
                 'product_id' => $product->id,
@@ -76,7 +81,16 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'low_stock_threshold' => 'required|integer|min:0',
+            'image' => 'nullable|image|max:2048',
         ]);
+
+        if ($request->hasFile('image')) {
+            if ($product->image_path) {
+                \Storage::disk('public')->delete($product->image_path);
+            }
+            $validated['image_path'] = $request->file('image')->store('products', 'public');
+        }
+        unset($validated['image']);
 
         $product->update($validated);
 

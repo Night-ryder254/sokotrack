@@ -8,6 +8,7 @@ use App\Http\Controllers\StorefrontController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\Admin\StaffController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,10 +22,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/admin/test', function () {
-        return 'You are an admin!';
-    });
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+    Route::patch('/staff/{user}', [StaffController::class, 'update'])->name('staff.update');
 });
 
 Route::middleware(['auth', 'role:admin,warehouse_staff'])->group(function () {

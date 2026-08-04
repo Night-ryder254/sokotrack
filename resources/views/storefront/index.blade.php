@@ -1,39 +1,52 @@
 <x-app-layout>
     <div class="min-h-screen bg-[#F7F9F6]">
 
-        {{-- Sticky header: search, tier stamp, cart total --}}
+        {{-- Sticky header: responsive - stacks on mobile, single row on desktop --}}
         <div class="sticky top-0 z-10 bg-[#1B4332] shadow-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex flex-wrap items-center gap-4">
-                    <h1 class="font-display text-2xl text-white shrink-0">SokoTrack</h1>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div class="flex items-center justify-between sm:contents">
+                        <h1 class="font-display text-xl sm:text-2xl text-white shrink-0">SokoTrack</h1>
 
-                    <form method="GET" class="flex-1 min-w-[240px]">
+                        <a href="{{ route('cart.index') }}" class="sm:hidden relative flex items-center gap-2 bg-[#E8A93B] text-[#1F2421] font-medium px-3 py-2 rounded-lg text-sm">
+                            <span>Cart</span>
+                            <span id="cart-badge-mobile" class="font-mono-price text-xs bg-[#1F2421]/10 px-2 py-0.5 rounded-full">
+                                @if ($cartCount > 0)
+                                    {{ $cartCount }} · KES {{ number_format($cartTotal, 0) }}
+                                @endif
+                            </span>
+                        </a>
+                    </div>
+
+                    <form method="GET" class="flex-1 min-w-0">
                         <input type="text" name="search" value="{{ request('search') }}"
                                placeholder="Search products, SKUs, brands..."
                                class="w-full rounded-lg border-0 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#E8A93B]">
                     </form>
 
-                    @if ($vendor)
-                        <div class="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
-                            <span @class([
-                                'w-2.5 h-2.5 rounded-full',
-                                'bg-amber-600' => $vendor->tier?->name === 'Bronze',
-                                'bg-gray-300' => $vendor->tier?->name === 'Silver',
-                                'bg-yellow-400' => $vendor->tier?->name === 'Gold',
-                            ])></span>
-                            <span class="text-white text-sm font-medium">{{ $vendor->tier?->name ?? 'Bronze' }}</span>
-                            <span class="text-white/60 text-xs font-mono-price">· {{ $vendor->loyalty_points }} pts</span>
-                        </div>
-                    @endif
+                    <div class="flex items-center justify-between sm:justify-end gap-3">
+                        @if ($vendor)
+                            <div class="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+                                <span @class([
+                                    'w-2.5 h-2.5 rounded-full',
+                                    'bg-amber-600' => $vendor->tier?->name === 'Bronze',
+                                    'bg-gray-300' => $vendor->tier?->name === 'Silver',
+                                    'bg-yellow-400' => $vendor->tier?->name === 'Gold',
+                                ])></span>
+                                <span class="text-white text-sm font-medium">{{ $vendor->tier?->name ?? 'Bronze' }}</span>
+                                <span class="text-white/60 text-xs font-mono-price">· {{ $vendor->loyalty_points }} pts</span>
+                            </div>
+                        @endif
 
-                    <a href="{{ route('cart.index') }}" class="relative flex items-center gap-2 bg-[#E8A93B] text-[#1F2421] font-medium px-4 py-2 rounded-lg text-sm hover:brightness-95">
-                        <span>Cart</span>
-                        <span id="cart-badge" class="font-mono-price text-xs bg-[#1F2421]/10 px-2 py-0.5 rounded-full">
-                            @if ($cartCount > 0)
-                                {{ $cartCount }} · KES {{ number_format($cartTotal, 0) }}
-                            @endif
-                        </span>
-                    </a>
+                        <a href="{{ route('cart.index') }}" class="hidden sm:flex relative items-center gap-2 bg-[#E8A93B] text-[#1F2421] font-medium px-4 py-2 rounded-lg text-sm hover:brightness-95">
+                            <span>Cart</span>
+                            <span id="cart-badge" class="font-mono-price text-xs bg-[#1F2421]/10 px-2 py-0.5 rounded-full">
+                                @if ($cartCount > 0)
+                                    {{ $cartCount }} · KES {{ number_format($cartTotal, 0) }}
+                                @endif
+                            </span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -72,6 +85,18 @@
 
             {{-- Product grid --}}
             <div class="flex-1">
+                {{-- Mobile category selector (sidebar is desktop-only) --}}
+                <div class="lg:hidden mb-4">
+                    <select onchange="window.location.href=this.value" class="w-full rounded-lg border-gray-300 text-sm">
+                        <option value="{{ route('storefront.index') }}" @selected(!request('category_id'))>All Products</option>
+                        @foreach ($categories as $category)
+                            <option value="{{ route('storefront.index', ['category_id' => $category->id]) }}" @selected(request('category_id') == $category->id)>
+                                {{ $category->name }} ({{ $category->products_count }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 @if (session('success'))
                     <div class="mb-4 bg-green-100 text-green-800 px-4 py-3 rounded-lg text-sm">{{ session('success') }}</div>
                 @endif
@@ -80,9 +105,14 @@
                     @forelse ($products as $product)
                         <div class="bg-white rounded-lg overflow-hidden border border-gray-100 hover:border-[#1B4332]/30 transition-colors flex flex-col">
                             <a href="{{ route('storefront.show', $product) }}">
-                                <div class="aspect-[4/3] flex items-center justify-center text-white text-3xl font-display"
-                                     style="background: linear-gradient(135deg, #1B4332, #2D6A4F);">
-                                    {{ strtoupper(substr($product->name, 0, 2)) }}
+                                <div class="h-32 sm:aspect-[4/3]">
+                                    @if ($product->image_path)
+                                        <img src="{{ asset('storage/' . $product->image_path) }}" class="w-full h-full object-cover">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-white text-3xl font-display" style="background: linear-gradient(135deg, #1B4332, #2D6A4F);">
+                                            {{ strtoupper(substr($product->name, 0, 2)) }}
+                                        </div>
+                                    @endif
                                 </div>
                             </a>
                             <div class="p-5 flex flex-col justify-between flex-1">
