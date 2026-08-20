@@ -32,9 +32,21 @@ class Vendor extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function payments()
+    {
+        return $this->hasManyThrough(
+            \App\Models\Payment::class,
+            \App\Models\Order::class,
+            'vendor_id', // foreign key on orders table
+            'order_id',  // foreign key on payments table
+            'id',        // local key on vendors table
+            'id'         // local key on orders table
+        );
+    }
+
     public function loyaltyTransactions()
     {
-        return $this->hasMany(LoyaltyTransaction::class);
+        return $this->hasMany(\App\Models\LoyaltyTransaction::class);
     }
 
     public function termsAcceptances()
