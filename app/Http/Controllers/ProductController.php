@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\LowStockAlert;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\StockMovement;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class ProductController extends Controller
 {
@@ -116,7 +119,8 @@ class ProductController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $newStock = $product->stock_quantity + $validated['quantity_change'];
+        $previousStock = $product->stock_quantity;
+        $newStock = $previousStock + $validated['quantity_change'];
 
         if ($newStock < 0) {
             return back()->with('error', 'Stock adjustment would result in negative stock. Adjustment rejected.');
@@ -132,6 +136,29 @@ class ProductController extends Controller
 
         $product->update(['stock_quantity' => $newStock]);
 
+        // Fire a real-time alert only when this adjustment causes the product
+        // to newly cross into low-stock territory — not on every sale while already low.
+        $justCrossedThreshold = $previousStock > $product->low_stock_threshold
+            && $newStock <= $product->low_stock_threshold;
+
+        if ($justCrossedThreshold) {
+            $this->sendLowStockAlert($product);
+        }
+
         return back()->with('success', 'Stock adjusted successfully.');
+    }
+
+    /**
+     * Send a real-time low-stock email to admin/staff.
+     * Shared by adjustStock() here and CheckoutController's stock decrement,
+     * so the "just crossed threshold" logic and recipient list stay in one place.
+     */
+    public function sendLowStockAlert(Product $product): void
+    {
+        $recipients = User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
+
+        if ($recipients->isNotEmpty()) {
+            Mail::to($recipients)->send(new LowStockAlert(collect([$product]), 'realtime'));
+        }
     }
 }

@@ -1,8 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-display text-2xl font-semibold text-[#1F2421]">
-            Staff Management
-        </h2>
+        <div class="flex items-center justify-between">
+            <h2 class="font-display text-2xl font-semibold text-[#1F2421]">
+                Staff Management
+            </h2>
+            <a href="{{ route('admin.staff.create') }}" class="bg-[#1B4332] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1B4332]/90">
+                Add Staff Member
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">

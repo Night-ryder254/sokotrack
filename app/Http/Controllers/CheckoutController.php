@@ -56,8 +56,13 @@ class CheckoutController extends Controller
             return back()->with('error', 'This order exceeds your available credit limit. Available: KES ' . number_format($vendor->availableCredit(), 2));
         }
 
+        // Products that newly cross into low-stock territory during this checkout.
+        // Collected during the transaction, emailed only after it commits successfully —
+        // sending inside the transaction risks alerting on stock changes that later roll back.
+        $productsThatCrossedThreshold = collect();
+
         try {
-            $order = DB::transaction(function () use ($cart, $vendor, $validated, $orderTotal) {
+            $order = DB::transaction(function () use ($cart, $vendor, $validated, $orderTotal, &$productsThatCrossedThreshold) {
 
                 $order = Order::create([
                     'vendor_id' => $vendor->id,
@@ -93,7 +98,16 @@ class CheckoutController extends Controller
                         'notes' => null,
                     ]);
 
+                    $previousStock = $product->stock_quantity;
                     $product->decrement('stock_quantity', $quantity);
+                    $product->refresh();
+
+                    $justCrossedThreshold = $previousStock > $product->low_stock_threshold
+                        && $product->stock_quantity <= $product->low_stock_threshold;
+
+                    if ($justCrossedThreshold) {
+                        $productsThatCrossedThreshold->push($product);
+                    }
 
                     $confirmedTotal += $product->price * $quantity;
                 }
@@ -129,6 +143,11 @@ class CheckoutController extends Controller
             });
 
             session()->forget('cart');
+
+            // Transaction committed successfully — now safe to send low-stock alerts
+            foreach ($productsThatCrossedThreshold as $product) {
+                app(ProductController::class)->sendLowStockAlert($product);
+            }
 
             return redirect()->route('checkout.success', $order)->with('success', 'Order placed successfully!');
 
