@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\Review;
 use Illuminate\Http\Request;
 
 class StorefrontController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('category')->where('stock_quantity', '>', 0);
+        $query = Product::with('category')->withAvg('reviews', 'rating')->withCount('reviews')->where('stock_quantity', '>', 0);
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -24,7 +25,6 @@ class StorefrontController extends Controller
         $categories = Category::withCount('products')->get();
         $vendor = $request->user()->vendor()->with('tier')->first();
 
-        // Calculate real cart total, not just item count
         $cart = session('cart', []);
         $cartCount = collect($cart)->sum();
         $cartTotal = 0;
@@ -36,7 +36,7 @@ class StorefrontController extends Controller
         return view('storefront.index', compact('products', 'categories', 'vendor', 'cartCount', 'cartTotal'));
     }
 
-    public function show(Product $product)
+    public function show(Request $request, Product $product)
     {
         if ($product->stock_quantity <= 0) {
             abort(404);
@@ -48,6 +48,28 @@ class StorefrontController extends Controller
             ->take(4)
             ->get();
 
-        return view('storefront.show', compact('product', 'relatedProducts'));
+        $reviews = Review::with('vendor')
+            ->where('product_id', $product->id)
+            ->latest()
+            ->get();
+
+        $averageRating = $reviews->avg('rating');
+
+        $vendor = $request->user()->vendor;
+
+        // Can this vendor review this product? Must have a confirmed order containing it.
+        $hasPurchased = $vendor && $vendor->orders()
+            ->where('status', 'confirmed')
+            ->whereHas('items', fn ($q) => $q->where('product_id', $product->id))
+            ->exists();
+
+        // Did they already review it? Pre-fill the form as an edit if so.
+        $existingReview = $vendor
+            ? $reviews->firstWhere('vendor_id', $vendor->id)
+            : null;
+
+        return view('storefront.show', compact(
+            'product', 'relatedProducts', 'reviews', 'averageRating', 'hasPurchased', 'existingReview'
+        ));
     }
 }

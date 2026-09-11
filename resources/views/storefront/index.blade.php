@@ -124,6 +124,19 @@
                                     <p class="text-xs text-gray-400 font-mono-price mt-1">{{ $product->sku }}</p>
                                     <p class="font-mono-price text-lg text-[#1B4332] mt-3">KES {{ number_format($product->price, 2) }}</p>
                                     <p class="text-xs text-green-600 mt-1">✓ In stock</p>
+
+                                    @if ($product->reviews_count > 0)
+                                        <div class="flex items-center gap-1 mt-1.5">
+                                            <div class="flex text-[#E8A93B]">
+                                                @for ($i = 1; $i <= 5; $i++)
+                                                    <svg class="w-3.5 h-3.5 {{ $i <= round($product->reviews_avg_rating) ? 'fill-current' : 'fill-gray-200' }}" viewBox="0 0 20 20">
+                                                        <path d="M10 15l-5.878 3.09L5.5 11.545 1 7.41l6.061-.88L10 1l2.939 5.53 6.061.88-4.5 4.135 1.378 6.545z"/>
+                                                    </svg>
+                                                @endfor
+                                            </div>
+                                            <span class="text-xs text-gray-400">({{ $product->reviews_count }})</span>
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <form onsubmit="addToCart(event, '{{ route('cart.add', $product) }}')" class="mt-4 flex items-center gap-2">
