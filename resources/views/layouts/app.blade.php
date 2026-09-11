@@ -88,5 +88,6 @@
                 }
             }
         </script>
+        <x-support-chatbot />
     </body>
 </html>

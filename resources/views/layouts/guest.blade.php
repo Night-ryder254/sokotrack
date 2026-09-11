@@ -25,5 +25,6 @@
 
             <p class="text-xs text-gray-400 mt-6">&copy; {{ date('Y') }} SokoTrack. Nairobi, Kenya.</p>
         </div>
+        <x-support-chatbot />
     </body>
 </html>
