@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -42,7 +43,7 @@ class RegisteredUserController extends Controller
             'phone' => ['required', 'string', 'max:20'],
         ]);
 
-        $user = DB::transaction(function () use ($request) {
+        [$user, $vendor] = DB::transaction(function () use ($request) {
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -50,7 +51,7 @@ class RegisteredUserController extends Controller
                 'role' => 'none', // vendors are external — role stays 'none', vendor status is signaled by the Vendor row itself
             ]);
 
-            Vendor::create([
+            $vendor = Vendor::create([
                 'user_id' => $user->id,
                 'vendor_tier_id' => null,
                 'business_name' => $request->business_name,
@@ -60,12 +61,14 @@ class RegisteredUserController extends Controller
                 'loyalty_points' => 0,
             ]);
 
-            return $user;
+            return [$user, $vendor];
         });
 
         event(new Registered($user));
 
         Auth::login($user);
+
+        Mail::to($user->email)->send(new \App\Mail\VendorWelcome($vendor));
 
         return redirect(route('dashboard', absolute: false));
     }

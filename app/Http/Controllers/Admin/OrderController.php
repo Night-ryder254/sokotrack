@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -77,6 +78,8 @@ class OrderController extends Controller
             $order->update(['status' => 'confirmed']);
         });
 
+        Mail::to($order->vendor->user->email)->send(new \App\Mail\PaymentConfirmed($order));
+
         return back()->with('success', "Payment confirmed for order {$order->order_number}.");
     }
 
@@ -141,6 +144,7 @@ class OrderController extends Controller
             $order->update(['status' => 'cancelled']);
         });
 
+        Mail::to($order->vendor->user->email)->send(new \App\Mail\OrderCancelled($order));
         return redirect()
             ->route('admin.orders.index')
             ->with('success', "Order {$order->order_number} cancelled and stock restored.");

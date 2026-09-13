@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\LoyaltyTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class CheckoutController extends Controller
 {
@@ -147,6 +148,15 @@ class CheckoutController extends Controller
             // Transaction committed successfully — now safe to send low-stock alerts
             foreach ($productsThatCrossedThreshold as $product) {
                 app(ProductController::class)->sendLowStockAlert($product);
+            }
+
+            // Order receipt to the vendor
+            Mail::to($vendor->user->email)->send(new \App\Mail\OrderReceipt($order));
+
+            // New order alert to admin/staff
+            $staffEmails = \App\Models\User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
+            if ($staffEmails->isNotEmpty()) {
+                Mail::to($staffEmails)->send(new \App\Mail\NewOrderAlert($order));
             }
 
             return redirect()->route('checkout.success', $order)->with('success', 'Order placed successfully!');

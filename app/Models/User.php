@@ -72,4 +72,9 @@ class User extends Authenticatable
     {
         return in_array($this->role, ['admin', 'warehouse_staff']);
     }
+
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }
