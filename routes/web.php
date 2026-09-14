@@ -57,6 +57,8 @@ Route::middleware(['auth', 'vendor'])->group(function () {
     Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/checkout/{order}/pending', [CheckoutController::class, 'pending'])->name('checkout.pending');
+    Route::get('/checkout/{order}/success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::get('/checkout/{order}/success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');

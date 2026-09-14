@@ -10,7 +10,18 @@ class Payment extends Model
     /** @use HasFactory<\Database\Factories\PaymentFactory> */
     use HasFactory;
 
-    protected $fillable = ['order_id', 'method', 'amount', 'status', 'mpesa_receipt_number', 'bank_reference', 'confirmed_at'];
+    protected $fillable = [
+        'order_id',
+        'method',
+        'amount',
+        'status',
+        'mpesa_receipt_number',
+        'bank_reference',
+        'confirmed_at',
+        'checkout_request_id',
+        'merchant_request_id',
+        'result_desc',
+    ];
 
     public function order()
     {
