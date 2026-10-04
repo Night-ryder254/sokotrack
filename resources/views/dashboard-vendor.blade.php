@@ -35,6 +35,21 @@
                 </div>
             </div>
 
+            {{-- USSD access — sandbox demo only, not a real dialable number yet --}}
+            <div class="bg-[#F7F9F6] border border-dashed border-gray-300 rounded-lg p-5">
+                <div class="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <p class="text-sm font-medium text-[#1F2421] mb-1">No internet? No problem.</p>
+                        <p class="text-sm text-gray-600">
+                            Dial <strong class="font-mono-price text-[#1B4332]">*384*65841#</strong> to check your balance, view recent orders, reorder by SKU, or check your loyalty points — even offline.
+                        </p>
+                    </div>
+                    <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-[#E8A93B]/20 text-[#8a5c14] shrink-0">
+                        Sandbox Demo
+                    </span>
+                </div>
+            </div>
+
             {{-- CTA to shop --}}
             <a href="{{ route('storefront.index') }}" class="block bg-[#1B4332] hover:bg-[#163829] text-white rounded-lg p-8 text-center transition-colors">
                 <p class="font-display text-2xl">Browse Products →</p>
