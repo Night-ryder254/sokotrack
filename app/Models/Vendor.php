@@ -54,6 +54,22 @@ class Vendor extends Model
         return $this->hasMany(TermsAcceptance::class);
     }
 
+    /**
+     * True only if the vendor has accepted the CURRENTLY active terms version.
+     * An acceptance of an older, now-inactive version doesn't count —
+     * this is what forces re-acceptance when admin publishes an update.
+     */
+    public function hasAcceptedCurrentTerms(): bool
+    {
+        $currentVersion = TermsVersion::where('is_active', true)->first();
+
+        if (! $currentVersion) {
+            return true; // no terms published yet — nothing to block on
+        }
+
+        return $this->termsAcceptances()->where('terms_version_id', $currentVersion->id)->exists();
+    }
+
     public function availableCredit()
     {
         return $this->credit_limit - $this->outstanding_balance;

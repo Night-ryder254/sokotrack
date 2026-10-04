@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\TermsAcceptance;
+use App\Models\TermsVersion;
 use App\Models\User;
 use App\Models\Vendor;
 use Illuminate\Auth\Events\Registered;
@@ -41,6 +43,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'business_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
+            'agree_terms' => ['accepted'],
         ]);
 
         [$user, $vendor] = DB::transaction(function () use ($request) {
@@ -60,6 +63,15 @@ class RegisteredUserController extends Controller
                 'outstanding_balance' => 0,
                 'loyalty_points' => 0,
             ]);
+
+            $currentTerms = TermsVersion::where('is_active', true)->first();
+            if ($currentTerms) {
+                TermsAcceptance::create([
+                    'vendor_id' => $vendor->id,
+                    'terms_version_id' => $currentTerms->id,
+                    'accepted_at' => now(),
+                ]);
+            }
 
             return [$user, $vendor];
         });

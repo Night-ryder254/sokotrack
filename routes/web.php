@@ -11,13 +11,20 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\Admin\TermsVersionController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\TermsController;
 
 Route::get('/', function () {
     return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/terms-preview', function () {
+    $currentVersion = \App\Models\TermsVersion::where('is_active', true)->firstOrFail();
+    return view('terms.preview', compact('currentVersion'));
+})->name('terms.preview');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -34,6 +41,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/vendors/{vendor}', [VendorController::class, 'show'])->name('vendors.show');
     Route::patch('/vendors/{vendor}', [VendorController::class, 'update'])->name('vendors.update');
     Route::post('/vendors/{vendor}/loyalty-adjustment', [VendorController::class, 'adjustLoyalty'])->name('vendors.loyalty-adjustment');
+    Route::get('/terms', [TermsVersionController::class, 'index'])->name('terms.index');
+    Route::get('/terms/create', [TermsVersionController::class, 'create'])->name('terms.create');
+    Route::post('/terms', [TermsVersionController::class, 'store'])->name('terms.store');
 });
 
 Route::middleware(['auth', 'role:admin,warehouse_staff'])->group(function () {
@@ -49,7 +59,15 @@ Route::middleware(['auth', 'role:admin,warehouse_staff'])->prefix('admin')->name
     Route::patch('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
 });
 
+// Unguarded by terms.accepted — this is the page that RESOLVES the block,
+// so it can never require the thing it exists to satisfy.
 Route::middleware(['auth', 'vendor'])->group(function () {
+    Route::get('/terms', [TermsController::class, 'show'])->name('terms.show');
+    Route::post('/terms/accept', [TermsController::class, 'accept'])->name('terms.accept');
+});
+
+// Everything else a vendor does is gated behind having accepted current terms.
+Route::middleware(['auth', 'vendor', 'terms.accepted'])->group(function () {
     Route::get('/shop', [StorefrontController::class, 'index'])->name('storefront.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::get('/shop/{product}', [StorefrontController::class, 'show'])->name('storefront.show');
@@ -58,7 +76,6 @@ Route::middleware(['auth', 'vendor'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::get('/checkout/{order}/pending', [CheckoutController::class, 'pending'])->name('checkout.pending');
-    Route::get('/checkout/{order}/success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::get('/checkout/{order}/success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/products/{product}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');

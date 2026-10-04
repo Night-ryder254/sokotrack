@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'vendor' => \App\Http\Middleware\EnsureUserIsVendor::class,
+            'terms.accepted' => \App\Http\Middleware\EnsureVendorHasAcceptedTerms::class,
         ]);
 
         $middleware->trustProxies(at: '*');

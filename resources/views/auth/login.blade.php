@@ -102,6 +102,17 @@
                     </div>
                 </div>
 
+                <div class="pt-1">
+                    <label class="flex items-start gap-2">
+                        <input type="checkbox" name="agree_terms" value="1" x-bind:required="tab === 'register'"
+                               class="mt-1 rounded border-gray-300 text-[#1B4332] focus:ring-[#1B4332]">
+                        <span class="text-sm text-gray-600">
+                            I agree to the <a href="{{ route('terms.preview') }}" target="_blank" class="text-[#1B4332] hover:underline">Terms & Conditions</a>.
+                        </span>
+                    </label>
+                    @error('agree_terms') <p class="text-xs text-[#C2622D] mt-1">{{ $message }}</p> @enderror
+                </div>
+
                 <button type="submit" class="w-full bg-[#1B4332] text-white text-sm font-medium py-2.5 rounded-lg hover:bg-[#1B4332]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1B4332] transition mt-2">
                     {{ __('Create Vendor Account') }}
                 </button>
