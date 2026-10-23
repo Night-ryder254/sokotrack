@@ -1,59 +1,190 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SokoTrack
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**A multi-vendor B2B wholesale platform for the Kenyan market.** One distributor supplies many retail vendors through a single system: ordering with transaction-safe stock handling, M-Pesa / bank transfer / credit-terms payments, loyalty tiers, and ordering over USSD.
 
-## About Laravel
+Built with Laravel 12 as a portfolio project. The focus is on getting the business logic right (stock, credit, loyalty and payments stay consistent under concurrent orders and cancellations) rather than on surface polish alone.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### For vendors (retail customers)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Self-registration with Terms & Conditions acceptance; re-acceptance is required whenever a new version is published
+- Storefront with search, categories, AJAX cart, and product pages with verified-purchase reviews and star ratings
+- Checkout with **M-Pesa STK Push**, **bank transfer**, or **credit terms** (enforced against the vendor's available credit)
+- Loyalty points (1 point per KES 100) and Bronze / Silver / Gold tiers
+- Printable and emailed receipts
+- **USSD menu**: credit balance, recent orders, quick reorder by SKU, loyalty points
+- Support chatbot (FAQ-based, role-aware, with a WhatsApp fallback)
 
-## Learning Laravel
+### For admins and warehouse staff
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- Products and categories with photo uploads; stock adjustments are a separate, audit-logged action
+- Order management: filter, confirm bank transfers, cancel with automatic reversal of stock, loyalty points and credit
+- Vendor management: credit limits, tiers, manual loyalty adjustments, full order history
+- **Vendor Credit Health Score**: Low / Medium / High risk from payment reliability, credit utilization and cancellations, with advisory credit-limit suggestions (never applied automatically)
+- Staff accounts (admin / warehouse staff) with a guard against removing the last admin
+- Terms & Conditions publishing with versioning
+- Low-stock email alerts: real-time when a product crosses its threshold, plus a daily digest
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Tech stack
 
-## Laravel Sponsors
+| Layer | Technology |
+|---|---|
+| Backend | Laravel 12, PHP 8.2+ |
+| Frontend | Blade, Tailwind CSS (Laravel Breeze), Alpine.js, Vite |
+| Database | MySQL 8 (MariaDB 10.6+ also works) |
+| Payments | Safaricom Daraja API (M-Pesa STK Push) |
+| USSD | Africa's Talking |
+| Email | SMTP (Gmail app password in development) |
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Getting started
 
-### Premium Partners
+**Requirements:** PHP 8.2+, Composer 2, Node 18+, MySQL 8 (or MariaDB 10.6+).
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+git clone https://github.com/<your-username>/sokotrack.git
+cd sokotrack
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+```
 
-## Contributing
+Create an empty database named `sokotrack` (character set `utf8mb4`) and set the `DB_*` values in `.env`. Then:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan migrate --seed
+php artisan storage:link
+npm run build          # or: npm run dev
+php artisan serve
+```
 
-## Code of Conduct
+Open http://127.0.0.1:8000. Optionally add product photos (see [Product photos](#product-photos)):
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan products:fetch-images
+```
 
-## Security Vulnerabilities
+### Demo accounts
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The seeder creates one account per role, plus about 40 generated vendors with order, payment and loyalty history. In local development the password for all seeded accounts is `password`.
 
-## License
+| Role | Email |
+|---|---|
+| Admin | `admin@sokotrack.test` |
+| Warehouse staff | `staff@sokotrack.test` |
+| Vendor | `vendor@sokotrack.test` |
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Seeded accounts are for local development only. Never seed a production database.
+
+## Configuration
+
+Copy `.env.example` to `.env`. The values specific to this project:
+
+| Variable | Purpose |
+|---|---|
+| `APP_URL` | Public URL of the app (the ngrok URL when testing M-Pesa callbacks) |
+| `DB_*` | Database connection |
+| `MAIL_*` | SMTP settings for transactional emails |
+| `MPESA_ENV` | `sandbox` or `production` |
+| `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET` | Daraja app credentials |
+| `MPESA_SHORTCODE`, `MPESA_PASSKEY` | STK Push shortcode and passkey |
+| `MPESA_CALLBACK_URL` | Public URL of `/api/mpesa/stk-callback` |
+
+Never commit `.env`. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for the full setup of each integration.
+
+## Integrations
+
+| Integration | Status |
+|---|---|
+| M-Pesa STK Push | Working end to end against the Daraja **sandbox** |
+| Transactional email | Working (six order, payment and account emails, plus low-stock alerts) |
+| USSD ordering | Working in the Africa's Talking **simulator**; a live service code needs a leased shortcode |
+| M-Pesa C2B paybill | Not implemented. The Daraja sandbox app had no C2B product provisioned |
+
+Details, flows and sandbox caveats are in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+## Scheduled tasks
+
+The daily low-stock digest (`sokotrack:low-stock-digest`, 07:00) runs through Laravel's scheduler:
+
+```bash
+php artisan schedule:work                      # local development
+* * * * * php artisan schedule:run             # production crontab entry
+```
+
+## Product photos
+
+Product photos are not stored in the repository. The `products:fetch-images` command finds a free-licensed photo for each product, trying in order:
+
+1. **The exact product** from [Open Food Facts](https://world.openfoodfacts.org), Open Beauty Facts and Open Products Facts (real packaging photos). The brand must match, and flavour variants such as "Zero" are rejected.
+2. **A clean photo of the product type** from Wikipedia (for example, the article "Cheese"). This is only used for types where the lead photo is a clear product picture.
+3. **A similar product** of the same type from the Open Facts databases (skip with `--exact-only`).
+
+If nothing suitable is found the product keeps its placeholder rather than a wrong photo. Photos uploaded through the admin form are never overwritten.
+
+```bash
+php artisan products:fetch-images --preview     # builds a review page, changes nothing
+php artisan products:fetch-images               # applies it
+php artisan products:fetch-images --only="Milk" # one product or a few
+```
+
+The first run takes around 10 minutes because Open Food Facts limits searches; results are cached for a week. Before running it, set your email in the `USER_AGENT` constant of the command, as both Wikimedia and Open Facts ask clients to identify themselves.
+
+Author and licence details for every photo are written to `storage/app/public/products/CREDITS.txt`.
+
+## Testing
+
+```bash
+php artisan test
+```
+
+The current suite is unit tests for the product-photo matching logic (brand detection, product-type rules and the Open Facts matcher), run against the full seeded catalogue. Feature tests for checkout, cancellation and payment callbacks are on the roadmap.
+
+## Project structure
+
+```
+app/
+  Console/Commands/     low-stock digest, product photo fetcher
+  Http/Controllers/     storefront, checkout, M-Pesa, USSD, reviews, terms
+  Http/Controllers/Admin/  orders, vendors, staff, terms versions
+  Http/Middleware/      role, vendor and terms-accepted gates
+  Mail/                 transactional emails
+  Models/               Eloquent models
+  Services/             DarajaService (M-Pesa), VendorCreditScoreService
+  Support/              product-photo matching (pure PHP, unit tested)
+database/               migrations and seeders
+docs/                   architecture and integration notes
+resources/views/        Blade views and email templates
+routes/                 web.php, api.php (M-Pesa and USSD callbacks), console.php
+tests/Unit/             unit tests
+```
+
+## Design decisions
+
+The reasoning behind the main decisions (row-locked checkout, signed ledgers for stock and loyalty, asynchronous payments, side effects after commit) is written up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Known limitations
+
+- **Sandbox integrations.** M-Pesa and USSD run against Safaricom's and Africa's Talking's sandboxes. Going live needs Daraja production credentials, a leased USSD shortcode and a public HTTPS deployment.
+- **Failed M-Pesa payments leave a pending order.** The payment is marked failed, but the order keeps its stock and loyalty points until an admin cancels it. Automatic release and a vendor retry flow are planned.
+- **The USSD callback is unauthenticated.** It trusts the phone number it receives. Before production it needs an Africa's Talking IP allowlist or shared secret, plus a vendor PIN before ordering.
+- **Limited test coverage.** See [Testing](#testing).
+- **Product photos are generic or community-sourced**, not supplier-provided. Upload exact photos per product through the admin form.
+- **The chatbot is rule-based**, with no AI service behind it.
+
+## Roadmap
+
+- Release stock and points automatically when an M-Pesa payment fails or times out
+- Vendor-facing retry for failed payments
+- Feature tests for checkout, cancellation and callbacks
+- USSD hardening (callback authentication, PIN)
+- Production deployment (server, HTTPS domain, queue worker, scheduler, backups)
+- M-Pesa C2B paybill for credit repayments, once the product is available on the Daraja app
+
+## Credits
+
+- Product photos come from [Wikimedia Commons](https://commons.wikimedia.org) (free licences, credited in `CREDITS.txt`) and from [Open Food Facts](https://world.openfoodfacts.org), Open Beauty Facts and Open Products Facts (contributor-licensed, with credit; see their terms of use).
+- Fonts: Fraunces, Inter and IBM Plex Mono.
+
+Built by Nigel Matekwa Alufwani.
