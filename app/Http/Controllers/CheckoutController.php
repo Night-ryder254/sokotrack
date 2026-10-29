@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
+use App\Mail\NewOrderAlert;
+use App\Mail\OrderReceipt;
+use App\Models\LoyaltyTransaction;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\StockMovement;
 use App\Models\Payment;
-use App\Models\LoyaltyTransaction;
+use App\Models\Product;
+use App\Models\StockMovement;
+use App\Models\User;
+use App\Services\DarajaService;
+use App\Services\OrderCancellationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -53,7 +58,7 @@ class CheckoutController extends Controller
         $orderTotal = $products->sum(fn ($p) => $p->price * $cart[$p->id]);
 
         if ($validated['payment_method'] === 'credit' && $orderTotal > $vendor->availableCredit()) {
-            return back()->with('error', 'This order exceeds your available credit limit. Available: KES ' . number_format($vendor->availableCredit(), 2));
+            return back()->with('error', 'This order exceeds your available credit limit. Available: KES '.number_format($vendor->availableCredit(), 2));
         }
 
         // Products that newly cross into low-stock territory during this checkout.
@@ -62,11 +67,11 @@ class CheckoutController extends Controller
         $productsThatCrossedThreshold = collect();
 
         try {
-            $order = DB::transaction(function () use ($cart, $vendor, $validated, $orderTotal, &$productsThatCrossedThreshold) {
+            $order = DB::transaction(function () use ($cart, $vendor, $validated, &$productsThatCrossedThreshold) {
 
                 $order = Order::create([
                     'vendor_id' => $vendor->id,
-                    'order_number' => 'ORD-' . strtoupper(uniqid()),
+                    'order_number' => 'ORD-'.strtoupper(uniqid()),
                     'total_amount' => 0, // updated below once items are confirmed
                     'payment_method' => $validated['payment_method'],
                     'status' => 'confirmed', // overwritten below for mpesa/bank_transfer, stays for credit
@@ -79,7 +84,7 @@ class CheckoutController extends Controller
                     // stock until this transaction commits — this is what prevents overselling.
                     $product = Product::where('id', $productId)->lockForUpdate()->first();
 
-                    if (!$product || $product->stock_quantity < $quantity) {
+                    if (! $product || $product->stock_quantity < $quantity) {
                         throw new \Exception("Insufficient stock for {$product?->name}. Only {$product?->stock_quantity} left.");
                     }
 
@@ -158,18 +163,10 @@ class CheckoutController extends Controller
                 return $order;
             });
 
-            session()->forget('cart');
-
-            // Transaction committed successfully — now safe to send low-stock alerts
-            foreach ($productsThatCrossedThreshold as $product) {
-                app(ProductController::class)->sendLowStockAlert($product);
-            }
-
-            // For M-Pesa: trigger the real STK push now that the order/payment
-            // rows exist and the DB transaction has safely committed.
+            // For M-Pesa: trigger the real STK push now that the order and payment rows exist
+            // and the DB transaction has safely committed.
             if ($validated['payment_method'] === 'mpesa') {
-                $darajaService = new \App\Services\DarajaService();
-                $pushResult = $darajaService->stkPush(
+                $pushResult = (new DarajaService)->stkPush(
                     $vendor->phone,
                     $order->total_amount,
                     $order->order_number
@@ -181,23 +178,31 @@ class CheckoutController extends Controller
                         'merchant_request_id' => $pushResult['MerchantRequestID'],
                     ]);
 
+                    session()->forget('cart');
+                    $this->sendLowStockAlerts($productsThatCrossedThreshold);
+
                     return redirect()->route('checkout.pending', $order)
                         ->with('success', 'Check your phone to complete payment.');
                 }
 
-                // Push failed to even send — mark payment failed, let vendor retry
+                // The prompt could not even be sent. Release the stock and points straight away
+                // and keep the cart, so the vendor can simply try again.
                 $order->payment->update(['status' => 'failed', 'result_desc' => 'Failed to initiate STK push']);
+                app(OrderCancellationService::class)->cancel($order, 'Could not start M-Pesa payment');
 
-                return redirect()->route('checkout.pending', $order)
-                    ->with('error', 'Could not start M-Pesa payment. Please try again.');
+                return redirect()->route('checkout.index')
+                    ->with('error', 'Could not start the M-Pesa payment, so nothing was charged. Please try again.');
             }
 
-            // Non-mpesa paths (bank_transfer, credit) still show the immediate success page
-            Mail::to($vendor->user->email)->send(new \App\Mail\OrderReceipt($order));
+            session()->forget('cart');
+            $this->sendLowStockAlerts($productsThatCrossedThreshold);
 
-            $staffEmails = \App\Models\User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
+            // Non-mpesa paths (bank_transfer, credit) still show the immediate success page
+            Mail::to($vendor->user->email)->send(new OrderReceipt($order));
+
+            $staffEmails = User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
             if ($staffEmails->isNotEmpty()) {
-                Mail::to($staffEmails)->send(new \App\Mail\NewOrderAlert($order));
+                Mail::to($staffEmails)->send(new NewOrderAlert($order));
             }
 
             return redirect()->route('checkout.success', $order)->with('success', 'Order placed successfully!');
@@ -217,6 +222,17 @@ class CheckoutController extends Controller
     public function success(Order $order)
     {
         $order->load('items.product', 'payment');
+
         return view('checkout.success', compact('order'));
+    }
+
+    /**
+     * Low-stock emails go out only after the order is safely committed.
+     */
+    private function sendLowStockAlerts($products): void
+    {
+        foreach ($products as $product) {
+            app(ProductController::class)->sendLowStockAlert($product);
+        }
     }
 }

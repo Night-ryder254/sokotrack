@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NewOrderAlert;
+use App\Mail\OrderReceipt;
+use App\Models\Order;
 use App\Models\Payment;
+use App\Models\User;
+use App\Services\OrderCancellationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class MpesaController extends Controller
 {
     /**
-     * Safaricom calls this after the customer responds to STK push
-     * (or after their attempt times out, as in sandbox testing).
-     * ResultCode 0 = success (real receipt attached), anything else = failure.
+     * Safaricom calls this after the customer responds to the STK push (or the prompt times out).
+     * ResultCode 0 means paid; anything else means the payment did not happen.
+     *
+     * Safaricom can deliver the same callback more than once, so the payment row is locked and
+     * only acted on while it is still "pending". A repeat is acknowledged and ignored.
      */
     public function stkCallback(Request $request)
     {
@@ -21,7 +29,7 @@ class MpesaController extends Controller
         $callback = $request->input('Body.stkCallback');
 
         if (! $callback) {
-            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+            return $this->acknowledge();
         }
 
         $checkoutRequestId = $callback['CheckoutRequestID'] ?? null;
@@ -31,44 +39,64 @@ class MpesaController extends Controller
 
         if (! $payment) {
             Log::warning('M-Pesa callback for unknown checkout_request_id', ['checkout_request_id' => $checkoutRequestId]);
-            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+
+            return $this->acknowledge();
         }
 
-        if ($resultCode === 0) {
-            $metadata = collect($callback['CallbackMetadata']['Item'] ?? []);
-            $receiptNumber = $metadata->firstWhere('Name', 'MpesaReceiptNumber')['Value'] ?? null;
+        $receipt = collect($callback['CallbackMetadata']['Item'] ?? [])
+            ->firstWhere('Name', 'MpesaReceiptNumber')['Value'] ?? null;
 
-            $payment->update([
-                'status' => 'confirmed',
-                'mpesa_receipt_number' => $receiptNumber,
-                'result_desc' => $callback['ResultDesc'] ?? 'Success',
-                'confirmed_at' => now(),
-            ]);
+        $outcome = DB::transaction(function () use ($payment, $callback, $resultCode, $receipt) {
+            $payment = Payment::where('id', $payment->id)->lockForUpdate()->first();
 
-            $order = $payment->order;
-            $order->update(['status' => 'confirmed']);
-
-            $order->load('vendor.user', 'items.product');
-
-            Mail::to($order->vendor->user->email)->send(new \App\Mail\OrderReceipt($order));
-
-            $staffEmails = \App\Models\User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
-            if ($staffEmails->isNotEmpty()) {
-                Mail::to($staffEmails)->send(new \App\Mail\NewOrderAlert($order));
+            if ($payment->status !== 'pending') {
+                // A success arriving for a payment we already closed as failed (the order was
+                // cancelled or released first) means the customer was charged for nothing.
+                return ($resultCode === 0 && $payment->status === 'failed') ? 'paid_after_failure' : 'duplicate';
             }
-        } else {
+
+            if ($resultCode === 0) {
+                $payment->update([
+                    'status' => 'confirmed',
+                    'mpesa_receipt_number' => $receipt,
+                    'result_desc' => $callback['ResultDesc'] ?? 'Success',
+                    'confirmed_at' => now(),
+                ]);
+
+                $payment->order->update(['status' => 'confirmed']);
+
+                return 'confirmed';
+            }
+
+            // Cancelled, wrong PIN, insufficient funds, timed out: give the stock and points back.
             $payment->update([
                 'status' => 'failed',
                 'result_desc' => $callback['ResultDesc'] ?? 'Payment failed',
             ]);
+
+            app(OrderCancellationService::class)->cancel($payment->order, 'M-Pesa payment failed');
+
+            return 'failed';
+        });
+
+        if ($outcome === 'paid_after_failure') {
+            Log::error('M-Pesa payment received for an order that was already cancelled. A refund is needed.', [
+                'order_id' => $payment->order_id,
+                'amount' => $payment->amount,
+                'mpesa_receipt' => $receipt,
+                'checkout_request_id' => $checkoutRequestId,
+            ]);
         }
 
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+        if ($outcome === 'confirmed') {
+            $this->sendConfirmationEmails($payment->order_id);
+        }
+
+        return $this->acknowledge();
     }
 
     /**
-     * Polled by the checkout pending page in the browser to check
-     * whether the callback has landed yet.
+     * Polled by the checkout pending page in the browser to check whether the callback has landed.
      */
     public function checkStatus(Request $request)
     {
@@ -83,5 +111,31 @@ class MpesaController extends Controller
             'result_desc' => $payment->result_desc,
             'order_id' => $payment->order_id,
         ]);
+    }
+
+    /**
+     * Receipt for the vendor and an alert for staff, sent only once payment is really confirmed.
+     * A mail problem must not turn the callback into an error, or Safaricom would keep retrying.
+     */
+    private function sendConfirmationEmails(int $orderId): void
+    {
+        try {
+            $order = Order::with('vendor.user', 'items.product')->find($orderId);
+
+            Mail::to($order->vendor->user->email)->send(new OrderReceipt($order));
+
+            $staffEmails = User::whereIn('role', ['admin', 'warehouse_staff'])->pluck('email');
+
+            if ($staffEmails->isNotEmpty()) {
+                Mail::to($staffEmails)->send(new NewOrderAlert($order));
+            }
+        } catch (\Throwable $e) {
+            Log::error('M-Pesa confirmation emails failed', ['order_id' => $orderId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function acknowledge()
+    {
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 }

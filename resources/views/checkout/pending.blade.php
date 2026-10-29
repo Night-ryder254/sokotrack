@@ -2,7 +2,8 @@
     <div class="min-h-screen bg-[#F7F9F6] py-10">
         <div class="max-w-lg mx-auto px-4 sm:px-6 lg:px-8">
 
-            <div class="bg-white rounded-xl p-8 text-center" x-data="mpesaStatusPoll({{ $order->id }}, '{{ $order->payment->checkout_request_id }}')">
+            <div class="bg-white rounded-xl p-8 text-center"
+                 x-data="mpesaStatusPoll({{ $order->id }}, @js($order->payment->checkout_request_id), @js($order->payment->status), @js($order->payment->result_desc))">
 
                 <div x-show="status === 'pending'">
                     <div class="mx-auto h-16 w-16 rounded-full bg-[#E8A93B]/20 flex items-center justify-center mb-4">
@@ -39,9 +40,9 @@
                     </div>
                     <h1 class="font-display text-2xl text-[#1F2421] mb-2">Payment Failed</h1>
                     <p class="text-gray-600 mb-1" x-text="resultDesc || 'The payment could not be completed.'"></p>
-                    <p class="text-sm text-gray-400 mb-6">Your items are still in your order — you can try again from your Dashboard.</p>
-                    <a href="{{ route('dashboard') }}" class="inline-block bg-[#1B4332] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#163829]">
-                        Go to Dashboard
+                    <p class="text-sm text-gray-400 mb-6">This order was cancelled and nothing was charged. You can place it again from the shop.</p>
+                    <a href="{{ route('storefront.index') }}" class="inline-block bg-[#1B4332] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#163829]">
+                        Back to Shop
                     </a>
                 </div>
 
@@ -52,7 +53,8 @@
                         </svg>
                     </div>
                     <h1 class="font-display text-2xl text-[#1F2421] mb-2">Still waiting...</h1>
-                    <p class="text-gray-600 mb-6">This is taking longer than expected. If you completed the payment, it may take a moment to reflect — check your Dashboard shortly.</p>
+                    <p class="text-gray-600 mb-2">This is taking longer than expected. If you completed the payment, it may take a moment to reflect, and this page will update by itself.</p>
+                    <p class="text-sm text-gray-400 mb-6">If no payment arrives within 10 minutes, the order is cancelled automatically and nothing is charged.</p>
                     <a href="{{ route('dashboard') }}" class="inline-block bg-[#1B4332] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#163829]">
                         Go to Dashboard
                     </a>
@@ -62,24 +64,28 @@
     </div>
 
     <script>
-        function mpesaStatusPoll(orderId, checkoutRequestId) {
+        function mpesaStatusPoll(orderId, checkoutRequestId, initialStatus, initialDescription) {
             return {
-                status: 'pending',
-                resultDesc: null,
+                status: initialStatus || 'pending',
+                resultDesc: initialDescription || null,
                 orderId: orderId,
                 elapsed: 0,
                 pollTimer: null,
                 elapsedTimer: null,
 
                 init() {
+                    // Opened again after the payment was already settled: nothing to wait for.
+                    if (this.status !== 'pending') {
+                        return;
+                    }
+
                     this.elapsedTimer = setInterval(() => this.elapsed++, 1000);
                     this.poll();
                     this.pollTimer = setInterval(() => this.poll(), 3000);
 
-                    // After 90s, just relabel the UI as "taking longer" — but NEVER
-                    // stop polling. A real person can take a while to find their
-                    // phone and enter a PIN; we should keep catching the callback
-                    // whenever it actually arrives, not give up on it.
+                    // After 90s, just relabel the UI as "taking longer" but NEVER stop polling.
+                    // A real person can take a while to find their phone and enter a PIN; we
+                    // should keep catching the callback whenever it actually arrives.
                     setTimeout(() => {
                         if (this.status === 'pending') {
                             this.status = 'timeout';
@@ -96,18 +102,21 @@
 
                         if (data.status === 'confirmed') {
                             this.status = 'confirmed';
-                            clearInterval(this.pollTimer);
-                            clearInterval(this.elapsedTimer);
+                            this.stop();
                         } else if (data.status === 'failed') {
                             this.status = 'failed';
                             this.resultDesc = data.result_desc;
-                            clearInterval(this.pollTimer);
-                            clearInterval(this.elapsedTimer);
+                            this.stop();
                         }
-                        // status === 'pending' → keep polling, even past the 90s mark
+                        // status === 'pending' -> keep polling, even past the 90s mark
                     } catch (e) {
                         console.error('Status poll failed', e);
                     }
+                },
+
+                stop() {
+                    clearInterval(this.pollTimer);
+                    clearInterval(this.elapsedTimer);
                 },
             };
         }
