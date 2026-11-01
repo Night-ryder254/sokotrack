@@ -435,4 +435,4 @@ The source code is published for viewing and evaluation only. No licence is gran
 
 ## Author
 
-Built by **Nigel Matekwa Alufwani**, Nairobi, Kenya. GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
+Built by **Nigel Matekwa Alufwani**. GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
