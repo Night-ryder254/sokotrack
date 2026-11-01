@@ -108,7 +108,7 @@ A vendor is a user with a vendor profile and the role `none`, so an external cus
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/<your-username>/sokotrack.git
+git clone https://github.com/Night-ryder254/sokotrack.git
 cd sokotrack
 composer install
 npm install
@@ -273,7 +273,7 @@ php artisan products:fetch-images               # applies it
 php artisan products:fetch-images --only="Milk" # one product or a few
 ```
 
-- **Set your email first.** Wikimedia and Open Facts ask clients to identify themselves, so change `you@example.com` in the `USER_AGENT` constant of `app/Console/Commands/FetchProductImages.php`.
+- **Identify yourself.** Wikimedia and Open Facts ask clients to say who they are. The `USER_AGENT` constant in `app/Console/Commands/FetchProductImages.php` carries a contact (currently this repository's URL); keep it pointing at a contact that is yours.
 - **The first run takes about 10 minutes** because Open Food Facts limits searches. Results are cached for a week, so later runs take seconds.
 - **The preview** is written to `storage/app/public/products/preview.html`. Open `http://127.0.0.1:8000/storage/products/preview.html` to check every photo, its source, and whether it is an exact product, a product-type photo or a similar product.
 - **Credits** for every photo are written to `storage/app/public/products/CREDITS.txt`.
@@ -418,12 +418,13 @@ No queue worker is needed: emails are sent directly, and the USSD handler defers
 
 ## Contributing
 
-This is a portfolio project, but suggestions and bug reports are welcome through GitHub issues. To propose a change:
+This is a personal portfolio project. The code is published to be read, and it is not open to reuse or outside contributions, so pull requests are not accepted. Bug reports and questions are welcome through GitHub issues. See [License](#license).
 
-1. Fork the repository and create a branch from `main`.
-2. Make the change, and add or update tests where it affects behaviour.
-3. Run `./vendor/bin/pint` and `php artisan test`; both should pass.
-4. Open a pull request describing what changed and why.
+## License
+
+Copyright (c) 2026 Nigel Matekwa Alufwani. **All rights reserved.**
+
+The source code is published for viewing and evaluation only. No licence is granted to use, copy, modify, distribute or create derivative works from it without the author's written permission. See [LICENSE](LICENSE). Third-party packages remain under their own licences.
 
 ## Acknowledgements
 
@@ -434,4 +435,4 @@ This is a portfolio project, but suggestions and bug reports are welcome through
 
 ## Author
 
-Built by **Nigel Matekwa Alufwani**.
+Built by **Nigel Matekwa Alufwani**, Nairobi, Kenya. GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
