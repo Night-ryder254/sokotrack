@@ -32,12 +32,19 @@ Each time ngrok restarts it gives a new address. Update `APP_URL` and `MPESA_CAL
 1. Checkout creates the order and a pending payment, then calls `DarajaService::stkPush()` after the transaction commits.
 2. Safaricom accepts the request and returns a `CheckoutRequestID`, stored on the payment.
 3. The customer enters their PIN on the phone.
-4. Safaricom POSTs the result to `/api/mpesa/stk-callback`. `MpesaController` finds the payment by `checkout_request_id`. On success it stores the receipt number, confirms the payment and order, and sends the receipt and admin alert. On failure it marks the payment failed.
+4. Safaricom POSTs the result to `/api/mpesa/stk-callback`. `MpesaController` finds the payment by `checkout_request_id`. The payment row is locked, and the callback acts only while it is still pending, so repeats are ignored. On success it stores the receipt number, confirms the payment and order, and sends the receipt and admin alert. On failure it marks the payment failed and cancels the order, returning the stock and loyalty points.
 5. The pending page polls `/api/mpesa/status` and moves to a confirmation or failure screen.
+
+### Failed and unanswered payments
+
+- **The prompt could not be sent:** checkout cancels the order immediately and returns the vendor to checkout with the cart intact, so they can try again.
+- **The customer cancels, enters a wrong PIN, or the prompt times out:** Safaricom reports a failure result code, and the callback cancels the order.
+- **No callback arrives:** `orders:release-stale-mpesa` (every five minutes) cancels M-Pesa orders still unanswered after 15 minutes. Change the window with `--minutes`.
+- **A success arrives after the order was released:** the customer has been charged for an order that no longer exists. The app does not revive it; it logs an error with the order, amount and M-Pesa receipt so the payment can be refunded manually.
 
 ### Sandbox caveats
 
-- Delivery in the sandbox is not fully reliable. The request can be accepted but the phone prompt may not arrive, or the prompt may arrive and the callback may not. When this happens the order simply stays pending. The code path is verified by a real end-to-end run (PIN entered, real receipt, correct callback, email sent).
+- Delivery in the sandbox is not fully reliable. The request can be accepted but the phone prompt may not arrive, or the prompt may arrive and the callback may not. When no callback arrives, the order is released automatically after 15 minutes. The success path is verified by a real end-to-end run (PIN entered, real receipt, correct callback, email sent).
 - Result code `1037` ("DS timeout, user cannot be reached") and `1032` (cancelled by user) are normal outcomes and mark the payment failed.
 - Amounts are rounded to whole shillings because the sandbox rejects decimals.
 
@@ -91,6 +98,8 @@ The sandbox code only works inside the simulator. Production needs a leased shor
 
 ## Production checklist
 
+- PHP 8.2.35, 8.3.36, 8.4.27 or 8.5.12 or newer, with PHP-FPM or Apache restarted after the update (PHP2Shell, CVE-2026-109618 and CVE-2026-109619). On Windows, use the rebuilt `-1` packages, which add the Brotli fix for CVE-2026-111497. Until PHP ships a fix for CVE-2026-115560, set `session.upload_progress.enabled=0`
+- `composer audit` shows no advisories for the installed packages
 - Public HTTPS domain; set `APP_ENV=production`, `APP_DEBUG=false`, then `php artisan config:cache`, `route:cache` and `view:cache`
 - MySQL with a dedicated, least-privilege user and regular backups
 - Scheduler running (`* * * * * php artisan schedule:run`) for the daily low-stock digest

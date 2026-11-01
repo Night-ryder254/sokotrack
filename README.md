@@ -85,7 +85,7 @@ A vendor is a user with a vendor profile and the role `none`, so an external cus
 
 | Requirement | Version | Notes |
 |---|---|---|
-| PHP | 8.2 or newer | Built and tested on 8.2 |
+| PHP | 8.2.35, 8.3.36, 8.4.27, 8.5.12 or newer | Earlier releases have critical remote-code-execution flaws (PHP2Shell, CVE-2026-109618 and CVE-2026-109619). PHP 8.2 reaches end of life on 31 December 2026, so 8.4 is recommended. **On Windows, install the rebuilt `-1` packages** (such as 8.4.27-1), which also fix a Brotli flaw reachable through cURL (CVE-2026-111497). `php -v` shows the same number for both builds, so check the file name and the SHA-256 on php.net/downloads |
 | PHP extensions | `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `hash`, `mbstring`, `openssl`, `pcre`, `pdo`, `pdo_mysql`, `session`, `tokenizer`, `xml` | `pdo_sqlite` is also needed to run the test suite |
 | Composer | 2.x | |
 | Node.js and npm | Node 20 or newer | Builds the frontend with Vite |
@@ -253,6 +253,7 @@ Each ngrok restart gives a new address. Update `APP_URL` and `MPESA_CALLBACK_URL
 | `php artisan products:fetch-images` | Fetch product photos (options: `--preview`, `--exact-only`, `--force`, `--only="name"`) |
 | `php artisan test` | Run the test suite |
 | `./vendor/bin/pint` | Format the code to the Laravel style |
+| `composer audit` | Check installed packages against published security advisories |
 | `npm run dev` / `npm run build` | Frontend with hot reload / production build |
 | `php artisan route:list` | List every route |
 
@@ -342,6 +343,7 @@ What you must do before going live:
 
 - Keep `.env` out of version control and rotate any key that has ever been committed or shared
 - Set `APP_DEBUG=false`
+- Run a patched PHP (8.2.35, 8.3.36, 8.4.27, 8.5.12 or newer; on Windows the `-1` rebuilds, which include the Brotli fix for CVE-2026-111497) and restart PHP-FPM or Apache afterwards. A Linux distribution may carry the fix under an older-looking version number, so check the package changelog for CVE-2026-109618 and CVE-2026-109619. Until PHP ships the fix for CVE-2026-115560, also set `session.upload_progress.enabled=0`
 - Restrict `trustProxies` in `bootstrap/app.php` to your real proxy addresses (it trusts all proxies so that ngrok works in development)
 - Protect the USSD callback with an Africa's Talking IP allowlist or shared secret, and require a vendor PIN before ordering
 - Never seed the demo accounts in production
@@ -432,4 +434,4 @@ This is a portfolio project, but suggestions and bug reports are welcome through
 
 ## Author
 
-Built by **Nigel Matekwa Alufwani**
+Built by **Nigel Matekwa Alufwani**.
