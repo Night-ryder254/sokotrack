@@ -45,7 +45,7 @@ final class OpenFactsMatcher
                 continue;
             }
 
-            $text = self::tokens(($record['product_name'] ?? '') . ' ' . ($record['generic_name'] ?? ''));
+            $text = self::tokens(($record['product_name'] ?? '').' '.($record['generic_name'] ?? ''));
             $score = 4.0;
             $hits = 0;
 
@@ -95,7 +95,7 @@ final class OpenFactsMatcher
                 continue;
             }
 
-            $text = self::tokens(($record['product_name'] ?? '') . ' ' . ($record['generic_name'] ?? ''));
+            $text = self::tokens(($record['product_name'] ?? '').' '.($record['generic_name'] ?? ''));
 
             if (! in_array($head, $text, true)) {
                 continue;
