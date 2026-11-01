@@ -22,7 +22,7 @@ class FetchProductImages extends Command
     protected $description = 'Give each product a free-licensed photo: the exact product from the Open Facts databases, else a clean photo of its type from Wikipedia';
 
     /** Wikimedia and Open Facts ask every client to identify itself. Put your own email here. */
-    protected const USER_AGENT = 'SokoTrackPortfolio/1.0 (local development; contact: staff@sokotrack.test)';
+    protected const USER_AGENT = 'SokoTrackPortfolio/1.0 (local development; +https://github.com/Night-ryder254/sokotrack)';
 
     /** Folders this command (or its earlier versions) saves photos in. */
     protected const OWN_FOLDERS = ['products/openfacts/', 'products/wiki/', 'products/verified/', 'products/stock'];
