@@ -1,0 +1,28 @@
+Copyright (c) 2026 Nigel Matekwa Alufwani. All rights reserved.
+
+This repository and everything in it (the "Software") is the proprietary work
+of the copyright holder. It is made publicly visible for viewing and evaluation
+only, for example as a portfolio piece.
+
+NO LICENCE OR PERMISSION IS GRANTED to use, run, copy, modify, merge, publish,
+distribute, sublicense, sell, or create derivative works from the Software, in
+whole or in part, for any purpose, without the prior written permission of the
+copyright holder. Reading the source is permitted; nothing else is.
+
+Rights that GitHub's Terms of Service give other GitHub users (such as viewing
+and forking a public repository within GitHub) exist only under those terms.
+This notice does not extend them.
+
+Third-party software that this project requires or includes, such as Laravel and
+the packages listed in composer.json and package.json, belongs to its respective
+authors and is licensed under its own terms. This notice does not change those
+licences. Product photographs are not part of this repository; they are fetched
+separately under their own licences and credited in CREDITS.txt.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF
+OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+To request permission, contact the author through https://github.com/Night-ryder254
