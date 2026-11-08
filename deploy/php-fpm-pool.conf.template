@@ -1,0 +1,19 @@
+; Rendered by entrypoint.sh. Loads after the image's own pool files, so these settings win.
+[www]
+user = www-data
+group = www-data
+listen = 127.0.0.1:9000
+
+; Without this PHP never sees Render's environment variables and every setting is empty.
+clear_env = no
+
+catch_workers_output = yes
+decorate_workers_output = no
+
+pm = dynamic
+pm.max_children = __FPM_MAX_CHILDREN__
+pm.start_servers = __FPM_START_SERVERS__
+pm.min_spare_servers = __FPM_MIN_SPARE__
+pm.max_spare_servers = __FPM_MAX_SPARE__
+pm.max_requests = 500
+request_terminate_timeout = 60s

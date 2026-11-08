@@ -1,0 +1,206 @@
+# Deploying SokoTrack to Render
+
+This guide deploys SokoTrack to [Render](https://render.com) with the `Dockerfile` and `render.yaml` in the repository root. It covers what runs where, what it costs, the first deploy, first-time setup, speed, backups and troubleshooting.
+
+## What gets deployed
+
+```
+Browsers, Safaricom (M-Pesa), Africa's Talking (USSD)
+          | HTTPS
+   Render edge: TLS, plus a CDN cache for static files
+          |
+   sokotrack (web service, Frankfurt)            sokotrack-mysql (private service)
+   nginx -> PHP-FPM  --- private network --->    MySQL 8.4, disk at /var/lib/mysql
+   Laravel scheduler (daily digest, M-Pesa release)
+   disk: product photos at storage/app/public
+```
+
+| Piece | Details |
+|---|---|
+| `sokotrack` | One Docker container running nginx, PHP-FPM and the Laravel scheduler under supervisord. Starter plan, Frankfurt |
+| `sokotrack-mysql` | MySQL 8.4 as a private service: reachable only from your other Render services, never from the internet |
+| Disks | 1 GB for product photos on the web service, 1 GB for MySQL data |
+
+## Why it is fast
+
+| Choice | Effect |
+|---|---|
+| Paid, always-on instances | No cold start. Free instances sleep after 15 minutes and take about a minute to wake, which would also break USSD and M-Pesa callbacks that must be answered at once |
+| Frankfurt | Usually the Render region with the lowest latency from Kenya (the others are Oregon, Ohio, Virginia and Singapore). Measure from your own connection, see [Measure it](#measure-it) |
+| Database on the private network, same region | A query costs well under a millisecond of network time |
+| OPcache that never re-checks files, an authoritative class map, and cached config, events and views | PHP does almost no work per request before your code runs |
+| nginx serves static files itself | CSS, JavaScript and photos never reach PHP |
+| Long cache headers: `/build` for a year, photos for 30 days | Returning visitors download almost nothing |
+| Render edge caching | Static files come from a nearby CDN location instead of Frankfurt |
+| gzip | Smaller CSS and JavaScript |
+| Indexes on the payment lookups | The checkout status poll, which runs every 3 seconds per waiting customer, stays cheap |
+
+These are design choices, not measurements. Measure your own deployment with the commands below.
+
+## Cost
+
+Approximate monthly cost, from Render's published prices at the time of writing. Check render.com/pricing before you commit.
+
+| Item | About |
+|---|---|
+| Web service, Starter (512 MB) | $7 |
+| MySQL private service, Starter (512 MB) | $7 |
+| Two 1 GB disks | $0.50 |
+| **Total** | **about $15 a month** |
+
+For more traffic, move the web service to Standard (2 GB) and set `FPM_MAX_CHILDREN` to `15`. The free plan is not suitable: it sleeps, it cannot use disks, and it blocks outbound email.
+
+## Before you deploy
+
+1. **Everything is pushed to GitHub `main`, and `php artisan test` passes.**
+2. **The health route exists.** Render checks `/up`, which Laravel 12 provides:
+
+   ```bash
+   grep -n "health" bootstrap/app.php
+   ```
+
+3. **No file-name case problems.** Linux is case-sensitive and Windows is not. This lists views with capital letters, which should match exactly how the code names them:
+
+   ```bash
+   git ls-files resources/views | grep '[A-Z]'
+   ```
+
+4. **Line endings are LF** (Windows line endings break shell scripts inside Linux containers). This should print nothing:
+
+   ```bash
+   git ls-files --eol Dockerfile render.yaml deploy | grep -v 'i/lf'
+   ```
+
+5. **Generate an `APP_KEY`:** `php artisan key:generate --show` (copy the `base64:...` value; `--show` prints it without changing your `.env`).
+6. **Have your secrets ready:** a Gmail app password, and your Daraja consumer key, consumer secret and passkey.
+
+## Deploy
+
+1. Copy `Dockerfile`, `.dockerignore`, `render.yaml`, the `deploy/` folder and the new migration into the repository, then commit and push.
+2. In the Render dashboard choose **New > Blueprint**, pick the `sokotrack` repository, and let it read `render.yaml`.
+3. Render asks for the values marked `sync: false`: `APP_KEY`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`. Fill them in and apply. The MySQL passwords are generated for you.
+4. Wait. The first build takes several minutes. The MySQL service also initialises on its first start, and the web container retries the migrations until the database answers (up to about 5 minutes). Retry messages in the web log during this time are normal.
+5. Open `https://<your-service>.onrender.com/up`. It should return an "up" page.
+
+The app's URL is taken from Render automatically. Set `APP_URL` yourself only when you add a custom domain.
+
+## First-time setup
+
+Open the **Shell** tab of the `sokotrack` web service. Run commands as the web user (`su-exec www-data`) so files get the right owner.
+
+**Load the demo data:**
+
+```bash
+su-exec www-data php artisan db:seed --force
+```
+
+**Change the demo passwords now.** The README publishes `password` for every seeded account, and this site is on the internet, so anyone could sign in as admin:
+
+```bash
+su-exec www-data php artisan tinker
+>>> App\Models\User::where('email', 'admin@sokotrack.test')->update(['password' => Hash::make('A-LONG-UNIQUE-PASSWORD')]);
+>>> App\Models\User::where('email', 'staff@sokotrack.test')->update(['password' => Hash::make('ANOTHER-LONG-PASSWORD')]);
+```
+
+Keep the demo vendor login public only if you are happy for visitors to place orders. Otherwise change that password too and share it privately.
+
+**Fetch the product photos** (about 10 minutes, so run it in the background):
+
+```bash
+nohup su-exec www-data php artisan products:fetch-images > /tmp/photos.log 2>&1 &
+tail -f /tmp/photos.log
+```
+
+The photos are written to the disk, so they survive deploys. Seeded `.test` email addresses cannot receive mail, so use a real address for any account you want emails for, or set `MAIL_MAILER` to `log` until you do.
+
+## Connect M-Pesa and USSD
+
+- **M-Pesa:** the callback URL is built automatically as `<app URL>/api/mpesa/stk-callback`. After a test payment, the log shows "M-Pesa STK callback received". ngrok is no longer needed.
+- **USSD:** in the Africa's Talking dashboard, set the USSD channel's callback URL to `https://<your-service>.onrender.com/api/ussd`.
+
+## Make it faster for Kenyan users
+
+**Edge caching.** Render can serve static files from a CDN for paid web services ("Edge Caching for Web Services" in Render's docs). Turn it on for the service. Responses are only cached when they carry no `Set-Cookie` header, which is why nginx serves CSS, JavaScript and photos directly, without PHP or sessions.
+
+**Check where a file is served from.** Request a built file twice:
+
+```bash
+curl -sI https://<your-service>.onrender.com/build/<a-file-from-public/build>.css | grep -i -E "cache-control|cf-cache-status|cf-ray"
+```
+
+`cf-cache-status: HIT` on the second request means the CDN served it, and the three-letter code at the end of `cf-ray` shows the location (`NBO` is Nairobi, `MBA` Mombasa).
+
+**Custom domain.** In Render, add the domain, point DNS at it, and set `APP_URL` to `https://your-domain`. Putting Cloudflare in front is optional and works the same way.
+
+### Measure it
+
+```bash
+for i in 1 2 3 4 5; do curl -s -o /dev/null -w "first byte %{time_starttransfer}s, total %{time_total}s\n" https://<your-service>.onrender.com/shop; done
+```
+
+Network distance dominates from Nairobi. Compare a few runs, and compare Frankfurt against Singapore if you want to be sure.
+
+## Operations
+
+- **Logs:** the Render dashboard Logs tab. Laravel writes to it through `LOG_CHANNEL=stderr`. Change `LOG_LEVEL` to `warning` once things are stable.
+- **Deploys:** every push to `main` deploys. Because the web service has a disk, a deploy pauses the site briefly while it swaps over. Roll back from the Deploys tab.
+- **Environment changes:** edit them in the dashboard. The service restarts, and configuration is cached again on boot.
+- **Updating PHP:** rebuild with **Manual Deploy > Clear build cache & deploy**. The build fails on purpose if the PHP in the image is older than the PHP2Shell fixes (8.2.35, 8.3.36, 8.4.27, 8.5.12).
+- **Scaling up:** switch the plan to Standard and set `FPM_MAX_CHILDREN=15`.
+- **Alerts:** turn on Render's deploy and service-failure notifications in the dashboard.
+
+### Backups
+
+Render's docs advise `mysqldump` for MySQL rather than relying on disk snapshots. Add your SSH key in your Render account settings. Then, from your computer, using the SSH address Render shows under the MySQL service's Connect menu:
+
+```bash
+ssh srv-XXXXXXXX@ssh.frankfurt.render.com 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction --no-tablespaces sokotrack | gzip' > sokotrack-$(date +%F).sql.gz
+```
+
+If `$MYSQL_ROOT_PASSWORD` is not set in your SSH session, copy it from the service's Environment tab. To restore:
+
+```bash
+gunzip -c sokotrack-2026-11-02.sql.gz | ssh srv-XXXXXXXX@ssh.frankfurt.render.com 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" sokotrack'
+```
+
+Take a backup before anything risky and store it away from Render.
+
+## Settings reference
+
+| Variable | Purpose |
+|---|---|
+| `APP_KEY` | Encryption key. Required; the container refuses to start without it |
+| `APP_URL` | Defaults to the Render URL. Set it for a custom domain |
+| `DB_HOST`, `DB_PASSWORD` | Filled in from the MySQL service by the Blueprint |
+| `MAIL_*` | SMTP settings. Gmail uses port 587, which Render's paid instances allow |
+| `MPESA_*` | Daraja credentials. `MPESA_CALLBACK_URL` is derived from `APP_URL` unless set |
+| `FPM_MAX_CHILDREN` | PHP workers. 5 for 512 MB, 15 for 2 GB. Each uses roughly 40 to 60 MB, so adjust from the memory graph |
+| `RUN_MIGRATIONS` | `true` by default. Set `false` to skip migrations on boot |
+| `MIGRATE_MAX_TRIES` | How many times to retry migrations while the database starts (60, 5 seconds apart) |
+| `QUEUE_CONNECTION` | `sync` so nothing waits for a queue worker that does not exist |
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| Build fails with "PHP ... is older than ..." | The base image layer is stale. Clear the build cache and deploy again |
+| Build fails with a class-not-found or autoload error | A file name has the wrong letter case. Rename it with `git mv` through a temporary name |
+| Container exits: "APP_KEY is not set" | Add `APP_KEY` in the Environment tab |
+| "Migrations still failing after 60 attempts" | Check the `DB_*` values and the MySQL service's logs |
+| 502 right after a deploy | The container is still starting. Wait a minute, then check the logs |
+| Pages load without styling | Mixed content: make sure `APP_URL` starts with `https`. Check the build log for the asset build |
+| 419 Page Expired | `SESSION_SECURE_COOKIE` is on, so use the HTTPS address, not HTTP |
+| Photos missing after a deploy | The disk is not mounted at `/var/www/html/storage/app/public`, or the photos were never fetched |
+| Emails not sent | Wrong Gmail app password, or the instance is on the free plan, which blocks SMTP. Set `MAIL_MAILER=log` to read them in the logs |
+| M-Pesa callback never arrives | Check `MPESA_CALLBACK_URL` and `APP_URL`. The log line "M-Pesa STK callback received" appears when Safaricom reaches you |
+| Slow first request after quiet time | The service is on the free plan and was asleep |
+
+## Trade-offs and next steps
+
+- **One instance, short pause on deploy.** A disk forces this. Moving photos to object storage (S3 or R2) would allow more instances and zero-downtime deploys, but needs code changes where views build photo URLs.
+- **Emails are sent while the page waits.** Checkout waits for SMTP. Queueing the emails, with a worker in the same container, would make checkout feel instant.
+- **Sessions and cache live in MySQL.** Fine at this scale. A Render Key Value instance (Redis-compatible) would be faster.
+- **Closure routes block route caching.** The entrypoint tolerates this. Turning the closure routes in `routes/web.php` into controller methods would let routes be cached.
+- **The scheduler runs inside the web container.** Safe with one instance. With several, use a Render Cron Job instead.
+- **MySQL is self-managed.** You own backups and upgrades. Render's managed PostgreSQL is the lower-maintenance alternative, but moving to it means retesting the SQL, such as case-sensitive searches.
+- **Continuous integration.** A GitHub Actions workflow that runs the tests on Linux would catch file-name case problems before Render does.

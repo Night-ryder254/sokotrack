@@ -323,7 +323,9 @@ app/
   Services/                DarajaService, OrderCancellationService, VendorCreditScoreService
   Support/                 product-photo matching (pure PHP, unit tested)
 database/                  migrations, factories, seeders
-docs/                      architecture and integration notes
+docs/                      architecture, integrations and deployment notes
+deploy/                    nginx, PHP-FPM, supervisord and entrypoint for the Docker image
+Dockerfile, render.yaml    production image and Render Blueprint
 resources/views/           Blade views and email templates
 routes/                    web.php, api.php (M-Pesa and USSD callbacks), console.php (schedule)
 tests/                     unit and feature tests
@@ -358,29 +360,19 @@ SokoTrack stores personal data: vendor contact names, phone numbers, email addre
 
 ## Deployment
 
-A production checklist is in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md#production-checklist). In outline:
+SokoTrack ships with a `Dockerfile` and a Render Blueprint (`render.yaml`) that deploy the app, plus a private MySQL service, in Frankfurt, the Render region usually closest to Kenya. The full guide, covering costs, first-time setup, speed, backups and troubleshooting, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). In outline:
 
-1. A server with PHP 8.2+, the extensions above, MySQL, and a web server whose document root is `public/`. Serve it over HTTPS.
-2. Set `.env` for production (`APP_ENV=production`, `APP_DEBUG=false`, real `APP_URL`, database and mail settings).
-3. Install and build:
+1. Push the repository to GitHub.
+2. In Render choose New > Blueprint, select the repository, and fill in the secrets it asks for.
+3. After the first deploy, load the demo data from the service's Shell, and **change the demo passwords**, because the site is on the public internet.
 
-   ```bash
-   composer install --no-dev --optimize-autoloader
-   npm ci && npm run build
-   php artisan migrate --force
-   php artisan storage:link
-   php artisan config:cache && php artisan route:cache && php artisan view:cache
-   ```
+The image runs nginx, PHP-FPM and the Laravel scheduler, and refuses to build on a PHP release older than the PHP2Shell fixes. On any other host you need PHP 8.2+ with the extensions listed above, a web server whose document root is `public/`, HTTPS, and a cron entry for the scheduler:
 
-4. Add the scheduler to cron, which runs the daily digest and the M-Pesa release:
+```
+* * * * * cd /path/to/sokotrack && php artisan schedule:run >> /dev/null 2>&1
+```
 
-   ```
-   * * * * * cd /path/to/sokotrack && php artisan schedule:run >> /dev/null 2>&1
-   ```
-
-5. Switch to Daraja production credentials and a production callback URL, and complete Safaricom's go-live process. USSD needs a leased shortcode.
-
-No queue worker is needed: emails are sent directly, and the USSD handler defers its emails until after the response. Do **not** run `db:seed` in production.
+Run `composer install --no-dev --optimize-autoloader`, `npm ci && npm run build`, `php artisan migrate --force`, `php artisan storage:link` and then `php artisan config:cache`. No queue worker is needed. Do **not** run `db:seed` on a real production database.
 
 ## Troubleshooting
 
@@ -435,4 +427,4 @@ The source code is published for viewing and evaluation only. No licence is gran
 
 ## Author
 
-Built by **Nigel Matekwa Alufwani**. GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
+Built by **Nigel Matekwa Alufwani**, GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
