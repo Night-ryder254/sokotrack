@@ -1,0 +1,111 @@
+# Render Blueprint for SokoTrack: a web service and a private MySQL service in Frankfurt,
+# the Render region closest to Kenya. Both run on paid instances: free ones sleep after
+# 10 minutes (USSD and M-Pesa callbacks need an instant answer) and cannot use a disk.
+services:
+  - type: web
+    name: sokotrack
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    autoDeploy: true
+    # Product photos live here and survive deploys. A disk means one instance and a short
+    # pause while a deploy swaps over (no zero-downtime deploys).
+    disk:
+      name: sokotrack-storage
+      mountPath: /var/www/html/storage/app/public
+      sizeGB: 1
+    envVars:
+      # Application
+      - key: APP_NAME
+        value: SokoTrack
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false          # php artisan key:generate --show
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: FPM_MAX_CHILDREN
+        value: "5"           # 5 suits 512 MB. Use 15 on the Standard plan (2 GB)
+      # Database: the private MySQL service below
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        fromService:
+          type: pserv
+          name: sokotrack-mysql
+          property: host
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        value: sokotrack
+      - key: DB_USERNAME
+        value: sokotrack
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: sokotrack-mysql
+          envVarKey: MYSQL_PASSWORD
+      # Email
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: SokoTrack
+      # M-Pesa (Daraja). MPESA_CALLBACK_URL is derived from the service URL unless you set it.
+      - key: MPESA_ENV
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        value: "174379"
+      - key: MPESA_PASSKEY
+        sync: false
+
+  - type: pserv
+    name: sokotrack-mysql
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./deploy/mysql/Dockerfile
+    dockerContext: ./deploy/mysql
+    disk:
+      name: sokotrack-mysql-data
+      mountPath: /var/lib/mysql     # must be exactly this path
+      sizeGB: 1
+    envVars:
+      - key: MYSQL_DATABASE
+        value: sokotrack
+      - key: MYSQL_USER
+        value: sokotrack
+      - key: MYSQL_PASSWORD
+        generateValue: true
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
