@@ -36,6 +36,8 @@ RUN composer install --no-dev --no-interaction --no-progress --no-scripts --pref
 COPY . .
 RUN composer dump-autoload --no-dev --no-scripts --classmap-authoritative \
  && (php artisan package:discover --ansi || echo "package:discover skipped; the manifest is built on first boot")
+# Everything the running app needs must be a production dependency (see the script for why).
+RUN php deploy/check-runtime-deps.php
 
 # ---------------------------------------------------------------------------
 # assets: compile Tailwind and Alpine with Vite. vendor/ is needed because the Tailwind
@@ -67,6 +69,13 @@ RUN chmod +x /opt/deploy/*.sh \
  && mkdir -p storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
  && php artisan storage:link \
  && chown -R www-data:www-data storage bootstrap/cache
+
+# Free plan only: bake a SQLite demo database (and optionally product photos) into the image.
+# Render passes a service's environment variables to the build as ARGs. Both default to off,
+# so the paid setup (MySQL + disk) is unaffected.
+ARG BAKE_DEMO_DB=false
+ARG BAKE_DEMO_PHOTOS=false
+RUN /opt/deploy/bake-demo-data.sh
 
 EXPOSE 10000
 ENTRYPOINT ["/opt/deploy/entrypoint.sh"]

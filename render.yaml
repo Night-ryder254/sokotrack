@@ -1,6 +1,6 @@
 # Render Blueprint for SokoTrack: a web service and a private MySQL service in Frankfurt,
 # the Render region closest to Kenya. Both run on paid instances: free ones sleep after
-# 10 minutes (USSD and M-Pesa callbacks need an instant answer) and cannot use a disk.
+# 15 minutes (USSD and M-Pesa callbacks need an instant answer) and cannot use a disk.
 services:
   - type: web
     name: sokotrack
@@ -26,7 +26,7 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_KEY
-        sync: false          # php artisan key:generate --show
+        sync: false          # php artisan key:generate --show (paste the whole value, with base64:)
       - key: LOG_CHANNEL
         value: stderr
       - key: LOG_LEVEL

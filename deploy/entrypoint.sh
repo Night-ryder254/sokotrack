@@ -23,6 +23,31 @@ if [ -z "${APP_KEY:-}" ]; then
     exit 1
 fi
 
+# APP_KEY must be what `php artisan key:generate --show` prints: "base64:" followed by 44 characters.
+# Without the prefix Laravel treats the text as the raw key and fails with "Unsupported cipher or
+# incorrect key length". Fix the easy mistake (prefix forgotten), refuse anything else. The key
+# itself is never printed.
+case "$APP_KEY" in
+    base64:*)
+        key_text=${APP_KEY#base64:}
+        if [ "${#key_text}" -ne 44 ] && [ "${#key_text}" -ne 24 ]; then
+            echo "APP_KEY starts with base64: but is the wrong length (${#key_text} characters after the prefix, expected 44). It looks cut off: copy the whole value." >&2
+            exit 1
+        fi
+        ;;
+    *)
+        key_length=${#APP_KEY}
+        if [ "$key_length" -eq 44 ] && printf '%s' "$APP_KEY" | grep -Eq '^[A-Za-z0-9+/]{43}=$'; then
+            echo "APP_KEY was missing its base64: prefix, so it was added for this run. Set the variable in Render to base64: followed by the key." >&2
+            APP_KEY="base64:$APP_KEY"
+            export APP_KEY
+        elif [ "$key_length" -ne 32 ] && [ "$key_length" -ne 16 ]; then
+            echo "APP_KEY has the wrong format. Generate one with: php artisan key:generate --show (it starts with base64:)" >&2
+            exit 1
+        fi
+        ;;
+esac
+
 # Render exposes the public URL. Use it unless APP_URL is set, for example to a custom domain.
 if [ -z "${APP_URL:-}" ] && [ -n "${RENDER_EXTERNAL_URL:-}" ]; then
     APP_URL="$RENDER_EXTERNAL_URL"
@@ -68,6 +93,14 @@ sed -e "s/__FPM_MAX_CHILDREN__/${MAX}/g" \
 # The persistent disk is mounted as root, so hand it to the web user.
 if id www-data >/dev/null 2>&1; then
     chown -R www-data:www-data "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+fi
+
+# SQLite (the free demo): make sure the database file exists and belongs to the web user.
+if [ "${DB_CONNECTION:-}" = "sqlite" ] && [ -n "${DB_DATABASE:-}" ] && [ ! -f "$DB_DATABASE" ]; then
+    touch "$DB_DATABASE"
+    if id www-data >/dev/null 2>&1; then
+        chown www-data:www-data "$DB_DATABASE"
+    fi
 fi
 
 # Cache configuration, events and views. Closure routes cannot be cached: that is not an error.

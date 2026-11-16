@@ -1,0 +1,67 @@
+# Render Blueprint for a FREE demo of SokoTrack: one free web service, no database service,
+# no disk, no payment method needed for the app itself.
+#
+# To use it, make this file the one Render reads:
+#   git mv render.yaml render.paid.yaml
+#   git mv render.free.yaml render.yaml
+#
+# How it works on a free instance (see docs/DEPLOYMENT.md):
+#   - The database is a SQLite file baked into the Docker image, with demo data and product
+#     photos added during the build. Free instances have no persistent storage, so every
+#     restart returns to that baked state. That suits a demo: nothing stale, nothing to clean up.
+#   - Free instances sleep after 15 minutes without traffic and take about a minute to wake.
+#   - Free instances cannot send email (SMTP is blocked), so emails are written to the log.
+services:
+  - type: web
+    name: sokotrack-demo
+    runtime: docker
+    region: frankfurt
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      # Build-time switches: Render passes environment variables to the Docker build as ARGs.
+      - key: BAKE_DEMO_DB
+        value: "true"
+      - key: BAKE_DEMO_PHOTOS
+        value: "true"          # adds about 10 minutes to each build. Set "false" for faster builds
+      # Application
+      - key: APP_NAME
+        value: SokoTrack Demo
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false            # php artisan key:generate --show (paste the whole value, with base64:)
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info
+      # SQLite: one process on one small instance, so keep the database writes few
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /var/www/html/database/database.sqlite
+      - key: SESSION_DRIVER
+        value: file
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      # Free instances block SMTP, so write emails to the log instead
+      - key: MAIL_MAILER
+        value: log
+      - key: MAIL_FROM_ADDRESS
+        value: demo@sokotrack.test
+      - key: MAIL_FROM_NAME
+        value: SokoTrack
+      # A free instance has a fraction of a CPU and 512 MB
+      - key: FPM_MAX_CHILDREN
+        value: "2"
+      - key: MPESA_ENV
+        value: sandbox

@@ -50,6 +50,50 @@ Approximate monthly cost, from Render's published prices at the time of writing.
 
 For more traffic, move the web service to Standard (2 GB) and set `FPM_MAX_CHILDREN` to `15`. The free plan is not suitable: it sleeps, it cannot use disks, and it blocks outbound email.
 
+## Your Render credit, and the free plan
+
+**What the credit is.** The "Credit Balance" on Render's Billing page. Render's docs say credits are applied at the end of each monthly billing period, against that month's bill, and anything left over is charged to your payment method. They are not prepaid spending money, and they do not switch you to a paid plan.
+
+**Can you spend it without a payment method?** As far as I could find, no. Render's staff have said a card is required to use paid services, and a request to use credits without payment details is still open. Render also suspends services that would incur charges when no payment method is on file.
+
+**If you add a card:** $50 covers roughly three months of the paid setup above, and the card is charged only for anything beyond the credit. A virtual or prepaid card with a low limit works, and so does a calendar reminder to delete the services before the credit runs out.
+
+**If you would rather use no card:** deploy the free demo below. Reports about whether Render asks for a card even for free services conflict, so create any free service first. If it demands a card, nothing on Render will work without one.
+
+### The free demo
+
+It uses `render.free.yaml`: one free web service, no database service, no disk.
+
+| | Free demo | Paid setup |
+|---|---|---|
+| Database | SQLite file baked into the image, with demo data | MySQL service |
+| Data after a restart | Returns to the baked demo state | Kept |
+| Product photos | Fetched during the build and baked in | On a persistent disk |
+| Sleeps when idle | After 15 minutes; about a minute to wake | Never |
+| Email | Written to the log (free instances block SMTP) | Sent through Gmail |
+| Shell access | None, so you cannot change the demo passwords | Yes |
+| Speed | A fraction of a CPU and 512 MB: usable, not fast | Starter or Standard |
+| Edge caching (CDN) | Not available | Available |
+
+Treat it as a public sandbox. The seeded `password` logins work for everyone, nothing real is stored, no email is sent, and M-Pesa stays off unless you add Daraja keys in the dashboard.
+
+**Deploy it:**
+
+1. `composer require fakerphp/faker`, then commit (see the checklist below).
+2. Make the free blueprint the one Render reads:
+
+   ```bash
+   git mv render.yaml render.paid.yaml
+   git mv render.free.yaml render.yaml
+   ```
+
+3. Commit and push, then in Render choose **New > Blueprint**, pick the repository, and enter `APP_KEY` when asked.
+4. The first build is slow because it creates the database and fetches photos (about 15 minutes in total). To skip the photos, set `BAKE_DEMO_PHOTOS` to `false` in `render.yaml` and use placeholders.
+
+**Keeping it awake.** An uptime monitor that requests `/up` every 10 minutes stops the sleeping. Render's free allowance (750 instance-hours a month per workspace at the time of writing) covers one always-on service. Render can still restart a free service at any time, which resets the data.
+
+**M-Pesa and USSD callbacks** arrive once and do not retry reliably. A sleeping service would miss them, so test those only while the service is awake.
+
 ## Before you deploy
 
 1. **Everything is pushed to GitHub `main`, and `php artisan test` passes.**
@@ -71,8 +115,15 @@ For more traffic, move the web service to Standard (2 GB) and set `FPM_MAX_CHILD
    git ls-files --eol Dockerfile render.yaml deploy | grep -v 'i/lf'
    ```
 
-5. **Generate an `APP_KEY`:** `php artisan key:generate --show` (copy the `base64:...` value; `--show` prints it without changing your `.env`).
+5. **Generate an `APP_KEY`:** `php artisan key:generate --show` and paste the **whole** value, including the `base64:` at the start. `--show` prints it without changing your `.env`. Never paste a key into a chat or a log.
 6. **Have your secrets ready:** a Gmail app password, and your Daraja consumer key, consumer secret and passkey.
+7. **Make Faker a production dependency.** The bank-transfer checkout calls `fake()` and the seeders use it, but the production build installs without dev packages, so bank-transfer checkout would crash on the live site. Run this, then commit `composer.json` and `composer.lock`:
+
+   ```bash
+   composer require fakerphp/faker
+   ```
+
+   The Docker build checks for this and stops with the same hint if it is missing.
 
 ## Deploy
 
@@ -184,8 +235,14 @@ Take a backup before anything risky and store it away from Render.
 | Symptom | Likely cause and fix |
 |---|---|
 | Build fails with "PHP ... is older than ..." | The base image layer is stale. Clear the build cache and deploy again |
+| Build fails with "Missing from the production install" | Run `composer require fakerphp/faker`, commit, and push |
+| Free demo: first page takes a minute | The instance was asleep. See "Keeping it awake" |
+| Free demo: data or photos reset | A restart returns to the baked state. That is by design |
 | Build fails with a class-not-found or autoload error | A file name has the wrong letter case. Rename it with `git mv` through a temporary name |
 | Container exits: "APP_KEY is not set" | Add `APP_KEY` in the Environment tab |
+| Every page is a 500, and the log says "Unsupported cipher or incorrect key length" | `APP_KEY` is missing its `base64:` prefix. Paste the whole value from `php artisan key:generate --show`. The container now adds a missing prefix itself and logs a warning. Replace a key whose first characters appeared in a log |
+| The shop says "No products match your search" | The tables exist but nothing is in them. Seed the data (see First-time setup). The seeders need Faker, so run `composer require fakerphp/faker`, commit and redeploy first |
+| `Class "Faker\Factory" not found` when seeding | Same cause: Faker is a dev dependency and the production build leaves it out. `composer require fakerphp/faker`, commit, push |
 | "Migrations still failing after 60 attempts" | Check the `DB_*` values and the MySQL service's logs |
 | 502 right after a deploy | The container is still starting. Wait a minute, then check the logs |
 | Pages load without styling | Mixed content: make sure `APP_URL` starts with `https`. Check the build log for the asset build |

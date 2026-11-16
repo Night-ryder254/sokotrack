@@ -366,6 +366,8 @@ SokoTrack ships with a `Dockerfile` and a Render Blueprint (`render.yaml`) that 
 2. In Render choose New > Blueprint, select the repository, and fill in the secrets it asks for.
 3. After the first deploy, load the demo data from the service's Shell, and **change the demo passwords**, because the site is on the public internet.
 
+A free, card-free demo variant (`render.free.yaml`, with a baked SQLite database) is described in the same guide.
+
 The image runs nginx, PHP-FPM and the Laravel scheduler, and refuses to build on a PHP release older than the PHP2Shell fixes. On any other host you need PHP 8.2+ with the extensions listed above, a web server whose document root is `public/`, HTTPS, and a cron entry for the scheduler:
 
 ```
@@ -427,4 +429,4 @@ The source code is published for viewing and evaluation only. No licence is gran
 
 ## Author
 
-Built by **Nigel Matekwa Alufwani**, GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
+Built by **Nigel Matekwa Alufwani**, Nairobi, Kenya. GitHub: [@Night-ryder254](https://github.com/Night-ryder254)
